@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import cors from 'cors';
 import authRoutes from './routes/auth.routes';
 import petsRoutes from './routes/pets.routes';
+import clinicsRoutes from './routes/clinics.routes';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -19,6 +20,7 @@ app.use(express.json());
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/pets', petsRoutes);
+app.use('/api/clinics', clinicsRoutes);
 
 app.get('/', (req, res) => {
   res.send('VetLink API is running');
