@@ -29,6 +29,21 @@ export const createAppointment = async (req: Request, res: Response) => {
       return res.status(403).json({ message: "Access denied to this pet" });
     }
 
+    // Conflict check
+    const conflict = await prisma.appointment.findFirst({
+        where: {
+            vetId: data.vetId,
+            date: new Date(data.date)
+        }
+    });
+
+    if (conflict) {
+        return res.status(409).json({
+         message: "This time slot is already booked with the selected vet"
+     });
+    }
+
+
     const appointment = await prisma.appointment.create({
       data: {
         date: new Date(data.date),
