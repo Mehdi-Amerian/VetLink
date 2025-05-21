@@ -6,7 +6,8 @@ const prisma = new PrismaClient();
 
 const vetSchema = z.object({
   name: z.string(),
-  specialization: z.string().optional()
+  specialization: z.string().optional(),
+  email: z.string().email()
 });
 
 export const createVet = async (req: Request, res: Response) => {
@@ -33,7 +34,7 @@ export const createVet = async (req: Request, res: Response) => {
     });
 
     await prisma.user.update({
-      where: { id: userId },
+      where: {email: data.email },
       data: { vetId: vet.id }
     });
 
