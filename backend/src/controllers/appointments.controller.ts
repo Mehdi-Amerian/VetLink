@@ -132,6 +132,17 @@ export const updateAppointmentStatus = async (req: Request, res: Response) => {
   });
 }
 
+// PENDING to COMPLETED check
+if (
+  appointment.status === 'PENDING' &&
+  status === 'COMPLETED'
+) {
+  return res.status(400).json({
+    message: 'Cannot mark a PENDING appointment as COMPLETED. Please confirm it first.'
+  });
+}
+
+
   // Access control
   const isOwner = appointment.ownerId === user.userId && user.role === 'OWNER';
   const isVet = user.role === 'VET' && (await prisma.user.findUnique({
