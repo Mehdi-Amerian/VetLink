@@ -32,6 +32,11 @@ export const createVet = async (req: Request, res: Response) => {
       }
     });
 
+    await prisma.user.update({
+      where: { id: userId },
+      data: { vetId: vet.id }
+    });
+
     res.status(201).json({ vet });
   } catch (err: any) {
     if (err instanceof z.ZodError) {
