@@ -142,6 +142,17 @@ if (
   });
 }
 
+// Block early completion
+if (status === 'COMPLETED') {
+  const now = new Date();
+  const scheduled = new Date(appointment.date);
+
+  if (scheduled > now) {
+    return res.status(400).json({
+      message: 'You cannot complete an appointment before it has occurred.'
+    });
+  }
+}
 
   // Access control
   const isOwner = appointment.ownerId === user.userId && user.role === 'OWNER';
