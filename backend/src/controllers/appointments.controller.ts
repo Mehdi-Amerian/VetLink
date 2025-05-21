@@ -105,3 +105,47 @@ export const getAppointmentsForVet = async (req: Request, res: Response) => {
 
   res.json({ appointments });
 };
+
+export const updateAppointmentStatus = async (req: Request, res: Response) => {
+  const user = (req as any).user;
+  const appointmentId = req.params.id;
+
+  const { status } = req.body;
+
+  if (!['CONFIRMED', 'CANCELLED', 'COMPLETED'].includes(status)) {
+    return res.status(400).json({ message: 'Invalid status' });
+  }
+
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    include: { vet: true, owner: true }
+  });
+
+  if (!appointment) {
+    return res.status(404).json({ message: 'Appointment not found' });
+  }
+
+  // Access control
+  const isOwner = appointment.ownerId === user.userId && user.role === 'OWNER';
+  const isVet = user.role === 'VET' && (await prisma.user.findUnique({
+    where: { id: user.userId },
+    include: { vetProfile: true }
+  }))?.vetProfile?.id === appointment.vetId;
+
+  // Determine permissions
+  const canUpdate =
+    (status === 'CANCELLED' && (isVet || isOwner)) ||
+    (status === 'CONFIRMED' && isVet) ||
+    (status === 'COMPLETED' && isVet);
+
+  if (!canUpdate) {
+    return res.status(403).json({ message: 'You are not allowed to update this appointment' });
+  }
+
+  const updated = await prisma.appointment.update({
+    where: { id: appointmentId },
+    data: { status }
+  });
+
+  res.json({ message: 'Status updated', appointment: updated });
+};
