@@ -125,6 +125,13 @@ export const updateAppointmentStatus = async (req: Request, res: Response) => {
     return res.status(404).json({ message: 'Appointment not found' });
   }
 
+  // Final state check 
+  if (['CANCELLED', 'COMPLETED'].includes(appointment.status)) {
+  return res.status(400).json({
+    message: `Cannot change status of a ${appointment.status.toLowerCase()} appointment`
+  });
+}
+
   // Access control
   const isOwner = appointment.ownerId === user.userId && user.role === 'OWNER';
   const isVet = user.role === 'VET' && (await prisma.user.findUnique({
