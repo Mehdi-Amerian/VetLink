@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Role} from '@prisma/client';
 import {Parser} from 'json2csv';
 
 const prisma = new PrismaClient();
@@ -182,5 +182,122 @@ export const exportAppointmentsCsv = async (req: Request, res: Response) => {
 
   res.header('Content-Type', 'text/csv');
   res.attachment('appointments.csv');
+  res.send(csv);
+};
+
+// Utility to build date filter from query
+const buildDateFilter = (from?: string, to?: string) => {
+  const filter: any = {};
+  if (from && !isNaN(Date.parse(from))) filter.gte = new Date(from);
+  if (to   && !isNaN(Date.parse(to))) filter.lte = new Date(to);
+  return Object.keys(filter).length ? filter : undefined;
+};
+
+export const exportPetsCsv = async (req: Request, res: Response) => {
+  const { role, userId } = (req as any).user;
+  // optional filter by ownerId (only owners see their own pets)
+  const ownerFilter = role === 'OWNER'
+    ? { ownerId: userId }
+    : req.query.ownerId
+      ? { ownerId: String(req.query.ownerId) }
+      : {};
+
+  const pets = await prisma.pet.findMany({
+    where: {
+      ...ownerFilter,
+      isDeleted: false,
+      createdAt: buildDateFilter(String(req.query.from), String(req.query.to))
+    },
+    include: { owner: true }
+  });
+
+  const flat = pets.map(p => ({
+    PetID: p.id,
+    Name: p.name,
+    Species: p.species,
+    Breed: p.breed || '',
+    BirthDate: p.birthDate.toISOString(),
+    OwnerEmail: p.owner.email,
+    CreatedAt: p.createdAt.toISOString()
+  }));
+
+  const csv = new Parser().parse(flat);
+  res.header('Content-Type', 'text/csv');
+  res.attachment('pets.csv');
+  res.send(csv);
+};
+
+export const exportUsersCsv = async (req: Request, res: Response) => {
+  const { userId, role: myRole } = (req as any).user;
+
+  const from = String(req.query.from);
+  const to   = String(req.query.to);
+  const dateFilter = buildDateFilter(from, to);
+
+  const visibilityFilter =
+    myRole === 'OWNER'
+      ? { id: userId }
+      : {};
+
+  const rawRole = req.query.role as string | undefined;
+  const roleFilter = rawRole
+    ? { role: rawRole as Role }
+    : {};
+
+  const users = await prisma.user.findMany({
+    where: {
+      ...visibilityFilter,
+      ...roleFilter,
+      createdAt: dateFilter
+    },
+    include: {
+      clinic: true,
+      vetProfile: true
+    }
+  });
+
+  const flat = users.map(u => ({
+    UserID: u.id,
+    Email: u.email,
+    FullName: u.fullName,
+    Role: u.role,
+    Clinic: u.clinic?.name || '',
+    VetProfileID: u.vetProfile?.id || '',
+    CreatedAt: u.createdAt.toISOString()
+  }));
+
+  const csv = new Parser().parse(flat);
+  res.header('Content-Type', 'text/csv');
+  res.attachment('users.csv');
+  res.send(csv);
+};
+
+
+export const exportClinicsCsv = async (req: Request, res: Response) => {
+  // optional city filter
+  const cityFilter = req.query.city
+    ? { city: String(req.query.city) }
+    : {};
+
+  const clinics = await prisma.clinic.findMany({
+    where: {
+      ...cityFilter,
+      createdAt: buildDateFilter(String(req.query.from), String(req.query.to))
+    }
+  });
+
+  const flat = clinics.map(c => ({
+    ClinicID: c.id,
+    Name: c.name,
+    Email: c.email,
+    Phone: c.phone,
+    City: c.city,
+    Emergency: c.emergency ? 'Yes' : 'No',
+    CreatedAt: c.createdAt.toISOString()
+  }));
+
+  const csv = new Parser().parse(flat);
+  res.header('Content-Type', 'text/csv');
+  res.attachment('clinics.csv');
   res.send(csv);
 };
