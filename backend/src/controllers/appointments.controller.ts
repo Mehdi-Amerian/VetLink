@@ -4,10 +4,12 @@ import { z } from 'zod';
 
 const prisma = new PrismaClient();
 
+// 1) Validate input: date (ISO string) + duration (minutes) + other required fields
 const appointmentSchema = z.object({
-  date: z.string().refine(val => !isNaN(Date.parse(val)), {
-    message: "Invalid date format"
+  date: z.string().refine(str => !isNaN(Date.parse(str)), {
+    message: 'Invalid ISO date string'
   }),
+  duration: z.number().int().positive(),     // e.g. 30, 45, 60
   reason: z.string(),
   emergency: z.boolean(),
   petId: z.string(),
@@ -16,37 +18,45 @@ const appointmentSchema = z.object({
 });
 
 export const createAppointment = async (req: Request, res: Response) => {
-  const userId = (req as any).user.userId;
+  const userId = (req as any).user.userId; 
 
   try {
+    //Parse + validate body
     const data = appointmentSchema.parse(req.body);
+    const start = new Date(data.date);
+    const end = new Date(start.getTime() + data.duration * 60_000);
 
-    const pet = await prisma.pet.findUnique({
-      where: { id: data.petId }
-    });
-
+    //Verify pet belongs to this owner
+    const pet = await prisma.pet.findUnique({ where: { id: data.petId } });
     if (!pet || pet.ownerId !== userId) {
-      return res.status(403).json({ message: "Access denied to this pet" });
+      return res.status(403).json({ message: 'Access denied to this pet' });
     }
 
-    // Conflict check
+    //Check for ANY overlapping appointment for the same vet
+    //Overlap occurs if: existing.start < newEnd  AND existing.endTime > newStart
     const conflict = await prisma.appointment.findFirst({
-        where: {
-            vetId: data.vetId,
-            date: new Date(data.date)
-        }
+      where: {
+        vetId: data.vetId,
+        status: { in: ['PENDING', 'CONFIRMED'] }, 
+        AND: [
+          { date:    { lt: end      } }, 
+          { endTime: { gt: start    } }
+        ]
+      }
     });
 
     if (conflict) {
-        return res.status(409).json({
-         message: "This time slot is already booked with the selected vet"
-     });
+      return res.status(409).json({
+        message: 'overlaps an existing appointment for the selected vet'
+      });
     }
 
-
+    //Create the appointment
     const appointment = await prisma.appointment.create({
       data: {
-        date: new Date(data.date),
+        date: start,
+        endTime: end,
+        duration: data.duration,
         reason: data.reason,
         emergency: data.emergency,
         petId: data.petId,
@@ -56,14 +66,17 @@ export const createAppointment = async (req: Request, res: Response) => {
       }
     });
 
-    res.status(201).json({ appointment });
+    return res.status(201).json({ appointment });
+
   } catch (err: any) {
     if (err instanceof z.ZodError) {
       return res.status(400).json({ message: err.errors });
     }
-    res.status(500).json({ message: "Failed to create appointment" });
+    console.error(err);
+    return res.status(500).json({ message: 'Failed to create appointment' });
   }
 };
+
 
 export const getMyAppointments = async (req: Request, res: Response) => {
   const userId = (req as any).user.userId;
@@ -177,4 +190,42 @@ if (status === 'COMPLETED') {
   });
 
   res.json({ message: 'Status updated', appointment: updated });
+};
+
+export const updateAppointmentTime = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { date, duration } = req.body; // same validation as above
+
+  const newStart = new Date(date);
+  const newEnd   = new Date(newStart.getTime() + duration * 60_000);
+
+  //Fetch existing appointment + verify permissions
+  const appt = await prisma.appointment.findUnique({ where: { id } });
+  if (!appt) return res.status(404).json({ message: 'Not found' });
+  if (appt.ownerId !== (req as any).user.userId) {
+    return res.status(403).json({ message: 'Forbidden' });
+  }
+
+  //Check for conflicts excluding this appointment itself
+  const overlap = await prisma.appointment.findFirst({
+    where: {
+      vetId: appt.vetId,
+      id:    { not: id },
+      status: { in: ['PENDING','CONFIRMED'] },
+      AND: [
+        { date:    { lt: newEnd } },
+        { endTime: { gt: newStart } }
+      ]
+    }
+  });
+  if (overlap) {
+    return res.status(409).json({ message: 'Overlaps an existing booking' });
+  }
+
+  //Update both date & endTime & duration
+  const updated = await prisma.appointment.update({
+    where: { id },
+    data: { date: newStart, endTime: newEnd, duration }
+  });
+  return res.json({ appointment: updated });
 };
