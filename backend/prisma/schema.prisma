@@ -85,6 +85,8 @@ model Pet {
 model Appointment {
   id          String     @id @default(uuid())
   date        DateTime
+  endTime     DateTime
+  duration    Int
   reason      String
   emergency   Boolean    @default(false)
   pet         Pet        @relation(fields: [petId], references: [id])

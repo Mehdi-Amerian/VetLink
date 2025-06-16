@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Appointment" ALTER COLUMN "endTime" SET DATA TYPE TIMESTAMP(3);
