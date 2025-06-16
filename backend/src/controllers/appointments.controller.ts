@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, AppointmentStatus } from '@prisma/client';
 import { z } from 'zod';
 
 const prisma = new PrismaClient();
@@ -120,76 +120,91 @@ export const getAppointmentsForVet = async (req: Request, res: Response) => {
 };
 
 export const updateAppointmentStatus = async (req: Request, res: Response) => {
-  const user = (req as any).user;
+  const { userId, role, vetId: tokenVetId } = (req as any).user;
   const appointmentId = req.params.id;
+  const { status } = req.body as { status: AppointmentStatus };
 
-  const { status } = req.body;
-
-  if (!['CONFIRMED', 'CANCELLED', 'COMPLETED'].includes(status)) {
+  //Validate incoming status
+  if (![ 'CONFIRMED', 'CANCELLED', 'COMPLETED' ].includes(status)) {
     return res.status(400).json({ message: 'Invalid status' });
   }
 
-  const appointment = await prisma.appointment.findUnique({
+  // Fetch appointment with ownerId, vetId, date, endTime
+  const appt = await prisma.appointment.findUnique({
     where: { id: appointmentId },
-    include: { vet: true, owner: true }
+    select: {
+      id: true,
+      status: true,
+      petId: true,
+      ownerId: true,
+      vetId: true,
+      date: true,
+      endTime: true
+    }
   });
-
-  if (!appointment) {
+  if (!appt) {
     return res.status(404).json({ message: 'Appointment not found' });
   }
 
-  // Final state check 
-  if (['CANCELLED', 'COMPLETED'].includes(appointment.status)) {
+// Final state lockout
+const finalStates: AppointmentStatus[] = [
+  AppointmentStatus.CANCELLED,
+  AppointmentStatus.COMPLETED
+];
+
+if (finalStates.includes(appt.status)) {
   return res.status(400).json({
-    message: `Cannot change status of a ${appointment.status.toLowerCase()} appointment`
+    message: `Cannot change a ${appt.status.toLowerCase()} appointment`
   });
 }
 
-// PENDING to COMPLETED check
-if (
-  appointment.status === 'PENDING' &&
-  status === 'COMPLETED'
-) {
-  return res.status(400).json({
-    message: 'Cannot mark a PENDING appointment as COMPLETED. Please confirm it first.'
-  });
-}
-
-// Block early completion
-if (status === 'COMPLETED') {
-  const now = new Date();
-  const scheduled = new Date(appointment.date);
-
-  if (scheduled > now) {
+  //Transition rules
+  //PENDING → COMPLETED disallowed
+  if (appt.status === AppointmentStatus.PENDING && status === AppointmentStatus.COMPLETED) {
     return res.status(400).json({
-      message: 'You cannot complete an appointment before it has occurred.'
+      message: 'Pending appointments must be confirmed before completion.'
     });
   }
-}
 
-  // Access control
-  const isOwner = appointment.ownerId === user.userId && user.role === 'OWNER';
-  const isVet = user.role === 'VET' && (await prisma.user.findUnique({
-    where: { id: user.userId },
-    include: { vetProfile: true }
-  }))?.vetProfile?.id === appointment.vetId;
-
-  // Determine permissions
-  const canUpdate =
-    (status === 'CANCELLED' && (isVet || isOwner)) ||
-    (status === 'CONFIRMED' && isVet) ||
-    (status === 'COMPLETED' && isVet);
-
-  if (!canUpdate) {
-    return res.status(403).json({ message: 'You are not allowed to update this appointment' });
+  //Cannot complete before it ends
+  if (status === AppointmentStatus.COMPLETED) {
+    const now = new Date();
+    if (now < appt.endTime) {
+      return res.status(400).json({
+        message: 'Cannot complete before appointment end time.'
+      });
+    }
   }
 
+  //Permission checks
+  const isOwner = role === 'OWNER' && appt.ownerId === userId;
+  const isVet   = role === 'VET'   && appt.vetId === tokenVetId;
+  const isAdmin = role === 'CLINIC_ADMIN'; // Admins can update any appointment
+
+  let allowed = false;
+  switch (status) {
+    case AppointmentStatus.CONFIRMED:
+      allowed = isVet || isAdmin;
+      break;
+    case AppointmentStatus.CANCELLED:
+      //allow owner or any clinic‐level admin/vet
+      allowed = isOwner || isVet || isAdmin;
+      break;
+    case AppointmentStatus.COMPLETED:
+      allowed = isVet || isAdmin;
+      break;
+  }
+  if (!allowed) {
+    return res.status(403).json({ message: 'Not authorized to update status' });
+  }
+
+  // Perform update
   const updated = await prisma.appointment.update({
     where: { id: appointmentId },
     data: { status }
   });
 
-  res.json({ message: 'Status updated', appointment: updated });
+  return res.json({ message: 'Status updated', appointment: updated });
 };
 
 export const updateAppointmentTime = async (req: Request, res: Response) => {
