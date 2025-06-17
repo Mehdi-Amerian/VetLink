@@ -1,14 +1,19 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 interface AuthenticatedRequest extends Request {
   user?: {
     userId: string;
     role: string;
+    vetId?: string | null;
+    clinicId?: string | null;
   };
 }
 
-export const verifyToken = (
+export const verifyToken = async (
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
@@ -27,9 +32,16 @@ export const verifyToken = (
       process.env.JWT_SECRET as string
     ) as { userId: string; role: string };
 
+    const userRecord = await prisma.user.findUnique({
+    where: { id: decoded.userId },
+    select: { vetId: true, clinicId: true }
+  });
+
     req.user = {
       userId: decoded.userId,
-      role: decoded.role
+      role: decoded.role,
+      vetId: userRecord?.vetId || null,
+      clinicId: userRecord?.clinicId || null
     };
 
     next();
