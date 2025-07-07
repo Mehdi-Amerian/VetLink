@@ -1,8 +1,7 @@
 import { Request, Response } from 'express';
 import { PrismaClient, Role} from '@prisma/client';
 import {Parser} from 'json2csv';
-
-const prisma = new PrismaClient();
+import { prisma } from '../config/prismaClient';
 
 export const getDashboard = async (req: Request, res: Response) => {
   const { userId, role } = (req as any).user;

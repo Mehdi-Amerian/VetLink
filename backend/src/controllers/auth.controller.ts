@@ -3,9 +3,8 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
+import { prisma } from '../config/prismaClient';
 
-// Initialize Prisma Client
-const prisma = new PrismaClient();
 
 // Define the schema for user signup
 const signupSchema = z.object({

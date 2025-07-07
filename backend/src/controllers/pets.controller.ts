@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
+import { prisma } from '../config/prismaClient';
 
-const prisma = new PrismaClient();
 
 // Validation schema
 const petSchema = z.object({

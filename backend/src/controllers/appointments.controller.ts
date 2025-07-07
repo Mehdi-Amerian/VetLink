@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
 import { PrismaClient, AppointmentStatus } from '@prisma/client';
 import { z } from 'zod';
+import { prisma } from '../config/prismaClient';
 
-const prisma = new PrismaClient();
 
 // 1) Validate input: date (ISO string) + duration (minutes) + other required fields
 const appointmentSchema = z.object({
