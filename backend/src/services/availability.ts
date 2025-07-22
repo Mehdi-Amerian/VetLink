@@ -115,3 +115,43 @@ export async function getSlotsForVetDay({
     free.map(d => format(d, 'HH:mm'))
   )).sort();
 }
+
+interface ClinicSlotsParams {
+  clinicId: string;
+  date: string;
+  duration: number;
+  vetId?: string;
+}
+
+/**
+ * Returns a map of vetId → free HH:mm slots for every vet in a clinic (optionally filtered to one vet).
+ * Returns undefined if the clinic doesn’t exist.
+ */
+export async function getClinicSlotsForDay({
+  clinicId, date, duration, vetId
+}: ClinicSlotsParams): Promise<Record<string, string[]> | undefined> {
+  // 1) Verify clinic exists
+  const clinic = await prisma.clinic.findUnique({ where: { id: clinicId }, select: { id: true } });
+  if (!clinic) return undefined;
+
+  // 2) Fetch all vets in that clinic (optionally filter by vetId)
+  const vets = await prisma.vet.findMany({
+    where: { clinicId, ...(vetId ? { id: vetId } : {}) },
+    select: { id: true }
+  });
+  if (vets.length === 0) {
+    // No vets → empty result
+    return {};
+  }
+
+  // 3) For each vet, get their slots
+  const result: Record<string, string[]> = {};
+  await Promise.all(vets.map(async v => {
+    const slots = await getSlotsForVetDay({ vetId: v.id, date, duration });
+    // getSlotsForVetDay returning [] means “no availability”, 
+    // undefined only if vetId invalid—but here vets came from DB
+    result[v.id] = slots || [];
+  }));
+
+  return result;
+}
