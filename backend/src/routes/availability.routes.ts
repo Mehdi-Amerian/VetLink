@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { addAvailability, getAvailabilityByVet, getAvailableSlots} from '../controllers/availability.controller';
+import { addAvailability, getAvailabilityByVet, getAvailableSlots, getClinicAvailableSlots} from '../controllers/availability.controller';
 import { verifyToken } from '../middlewares/verifyToken';
 import { checkRole } from '../middlewares/checkRole';
 
@@ -14,5 +14,6 @@ router.get('/:vetId', getAvailabilityByVet);
 // Anyone can view available appointment start times
 // GET /api/availability/vets/:vetId/available-slots?date=YYYY-MM-DD&duration=30
 router.get('/vets/:vetId/available-slots', getAvailableSlots);
+router.get('/clinics/:clinicId/available-slots', getClinicAvailableSlots);
 
 export default router;

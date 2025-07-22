@@ -261,6 +261,8 @@ async function main() {
       where: { id: apptId },
       update: {
         date: new Date(ap.date),
+        duration: ap.duration,
+        endTime: new Date(ap.endTime),
         reason: ap.reason,
         emergency: ap.emergency,
         status: statusEnum
@@ -268,6 +270,8 @@ async function main() {
       create: {
         id: apptId,
         date: new Date(ap.date),
+        duration: ap.duration,
+        endTime: new Date(ap.endTime),
         reason: ap.reason,
         emergency: ap.emergency,
         petId: petId,
