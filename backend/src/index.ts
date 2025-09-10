@@ -10,6 +10,7 @@ import availabilityRoutes from './routes/availability.routes';
 import appointmentsRoutes from './routes/appointments.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import notificationsRouter from './routes/notifications.routes';
+import { scheduleReminderJob } from './jobs/reminderJob';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -31,6 +32,9 @@ app.use('/api/availability', availabilityRoutes);
 app.use('/api/appointments', appointmentsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/notifications', notificationsRouter);
+
+// Schedule the reminder job
+scheduleReminderJob();
 
 app.get('/', (req, res) => {
   res.send('VetLink API is running');
