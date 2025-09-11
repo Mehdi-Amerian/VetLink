@@ -3,13 +3,27 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "lint-staged": {
+    "openapi.yaml": [
+      "redocly lint openapi.yaml"
+    ],
+    "src/**/*.{ts,tsx}": [
+      "npm run -s build --if-present",
+      "git add"
+    ]
+  },
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
     "migrate": "npx prisma migrate dev",
     "generate": "npx prisma generate",
     "studio": "npx prisma studio",
     "seed:dev": "cross-env NODE_ENV=development prisma db seed",
-    "test": "cross-env NODE_ENV=test jest --runInBand"
+    "test": "cross-env NODE_ENV=test jest --runInBand",
+    "openapi:lint": "npx redocly lint openapi.yaml --config redocly.yaml",
+    "openapi:sdk": "npx openapi-typescript ./openapi.yaml -o ./src/sdk/types.ts",
+    "sdk": "npm run openapi:lint && npm run openapi:sdk"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
@@ -18,6 +32,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@redocly/cli": "^2.1.0",
     "@types/bcryptjs": "^3.0.0",
     "@types/cors": "^2.8.18",
     "@types/express": "^4.17.22",
@@ -28,6 +43,8 @@
     "@types/supertest": "^6.0.3",
     "cross-env": "^7.0.3",
     "jest": "^30.0.0",
+    "lint-staged": "^16.1.6",
+    "openapi-typescript": "^7.9.1",
     "supertest": "^7.1.1",
     "ts-jest": "^29.4.0",
     "ts-node": "^10.9.2",
