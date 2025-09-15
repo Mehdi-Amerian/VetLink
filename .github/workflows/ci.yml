@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main", "backend", "feature/**" ]
+  pull_request:
+    branches: [ "main", "backend" ]
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: backend  # all run steps execute inside backend/
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: vetlink_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/vetlink_ci?schema=public
+      NODE_ENV: test
+      TZ: Europe/Helsinki
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.0"
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Apply DB migrations
+        run: npx prisma migrate deploy
+
+      - name: OpenAPI lint
+        run: npx redocly lint openapi.yaml --config redocly.yaml
+
+      - name: Generate SDK types
+        run: npx openapi-typescript ./openapi.yaml -o ./src/sdk/types.ts
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Run tests
+        run: npm test -- -- runInBand
+        
