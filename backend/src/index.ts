@@ -13,6 +13,7 @@
   import { scheduleReminderJob } from './jobs/reminderJob';
   import docsRouter from './routes/docs';
   import systemRoutes from './routes/system';
+  import { authLimiter, bookingLimiter } from './middlewares/rateLimit';
 
   // Load environment variables from .env file
   dotenv.config();
@@ -35,6 +36,8 @@
   app.use('/api/appointments', appointmentsRoutes);
   app.use('/api/dashboard', dashboardRoutes);
   app.use('/api/notifications', notificationsRouter);
+  app.use('/api/auth', authLimiter);
+  app.use('/api/appointments', bookingLimiter);
 
   // Schedule the reminder job
   scheduleReminderJob();
