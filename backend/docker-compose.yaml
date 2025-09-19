@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: vetlink_dev
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+
+  api:
+    build: .
+    env_file:
+      - .env.docker
+    environment:
+      # override or ensure DATABASE_URL points to the service name "db"
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/vetlink_dev?schema=public
+      TZ: Europe/Helsinki
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "4000:4000"
+
+volumes:
+  dbdata:
