@@ -12,6 +12,7 @@
   import notificationsRouter from './routes/notifications.routes';
   import { scheduleReminderJob } from './jobs/reminderJob';
   import docsRouter from './routes/docs';
+  import systemRoutes from './routes/system';
 
   // Load environment variables from .env file
   dotenv.config();
@@ -41,6 +42,9 @@
   app.get('/', (req, res) => {
     res.send('VetLink API is running');
   });
+
+  // Health and readiness probes
+  app.use('/', systemRoutes);
 
   //docs (redoc + openapi.yaml)
   app.use('/', docsRouter);
