@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const appointments_controller_1 = require("../controllers/appointments.controller");
+const appointments_controller_2 = require("../controllers/appointments.controller");
+const verifyToken_1 = require("../middlewares/verifyToken");
+const checkRole_1 = require("../middlewares/checkRole");
+const router = (0, express_1.Router)();
+router.post('/', verifyToken_1.verifyToken, (0, checkRole_1.checkRole)('OWNER'), appointments_controller_1.createAppointment);
+router.get('/', verifyToken_1.verifyToken, (0, checkRole_1.checkRole)('OWNER'), appointments_controller_1.getMyAppointments);
+router.get('/vet', verifyToken_1.verifyToken, (0, checkRole_1.checkRole)('VET'), appointments_controller_1.getAppointmentsForVet);
+router.patch('/:id/status', verifyToken_1.verifyToken, appointments_controller_2.updateAppointmentStatus);
+exports.default = router;
