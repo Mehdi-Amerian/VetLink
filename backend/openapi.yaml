@@ -773,48 +773,29 @@ paths:
                 $ref: '#/components/schemas/Error'
 
   /healthz:
-   get:
-    tags: [System]
-    security: []
-    summary: Liveness probe
-    operationId: healthz
-    responses:
-      '200':
-        description: OK
-      '400':
-        description: Bad Request
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Error'
-      '503':
-        description: Unhealthy
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Error'
+    get:
+      tags: [System]
+      security: []
+      summary: Liveness probe
+      operationId: healthz
+      responses:
+        '200': { description: OK }
+
 
   /readyz:
-   get:
-    tags: [System]
-    security: []
-    summary: Readiness probe
-    operationId: readyz
-    responses:
-      '200':
-        description: OK
-      '400':
-        description: Bad Request
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Error'
-      '503':
-        description: Not ready
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Error'
+    get:
+      tags: [System]
+      security: []
+      summary: Readiness probe
+      operationId: readyz
+      responses:
+        '200': { description: OK }
+        '503':
+          description: Not ready
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
 
 components:
   securitySchemes:
