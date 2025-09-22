@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PrismaClient, AppointmentStatus } from '@prisma/client';
+import { AppointmentStatus } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../config/prismaClient';
 
@@ -9,74 +9,89 @@ const appointmentSchema = z.object({
   date: z.string().refine(str => !isNaN(Date.parse(str)), {
     message: 'Invalid ISO date string'
   }),
-  duration: z.number().int().positive(),     // e.g. 30, 45, 60
-  reason: z.string(),
-  emergency: z.boolean(),
-  petId: z.string(),
-  clinicId: z.string(),
-  vetId: z.string()
+  duration: z.number().int().min(5).max(500),
+  reason: z.string().min(1).max(500),
+  emergency: z.boolean().optional().default(false),
+  petId: z.string().uuid(),
+  clinicId: z.string().uuid(),
+  vetId: z.string().uuid()
 });
 
 export const createAppointment = async (req: Request, res: Response) => {
-  const userId = (req as any).user.userId; 
+  const user = (req as any).user as { userId: string; role: string };
+  if (!user?.userId) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
-    //Parse + validate body
     const data = appointmentSchema.parse(req.body);
+
     const start = new Date(data.date);
     const end = new Date(start.getTime() + data.duration * 60_000);
 
-    //Verify pet belongs to this owner
+    //Owner can only book for their own pet
     const pet = await prisma.pet.findUnique({ where: { id: data.petId } });
-    if (!pet || pet.ownerId !== userId) {
-      return res.status(403).json({ message: 'Access denied to this pet' });
+    if (!pet || pet.isDeleted || pet.ownerId !== user.userId) {
+      return res.status(403).json({ error: 'Forbidden', message: 'You do not own this pet.' });
     }
 
-    //Check for ANY overlapping appointment for the same vet
-    //Overlap occurs if: existing.start < newEnd  AND existing.endTime > newStart
+    //Vet must exist and belong to provided clinic
+    const vet = await prisma.vet.findUnique({
+      where: { id: data.vetId },
+      select: { id: true, clinicId: true },
+    });
+    if (!vet) return res.status(404).json({ error: 'Not Found', message: 'Vet not found.' });
+    if (vet.clinicId !== data.clinicId) {
+      return res.status(400).json({ error: 'Bad Request', message: 'Vet does not belong to provided clinic.' });
+    }
+
+    //Conflict check (any non-cancelled appt that overlaps)
     const conflict = await prisma.appointment.findFirst({
       where: {
         vetId: data.vetId,
-        status: { in: ['PENDING', 'CONFIRMED'] }, 
-        AND: [
-          { date:    { lt: end      } }, 
-          { endTime: { gt: start    } }
-        ]
-      }
+        status: { not: AppointmentStatus.CANCELLED },
+        date: { lt: end },      // existing starts before new end
+        endTime: { gt: start }, // existing ends after new start
+      },
+      select: { id: true, date: true, endTime: true, status: true },
     });
 
     if (conflict) {
       return res.status(409).json({
-        message: 'overlaps an existing appointment for the selected vet'
+        error: 'Conflict',
+        message: 'Time slot overlaps an existing appointment.',
+        existing: conflict,
       });
     }
 
-    //Create the appointment
-    const appointment = await prisma.appointment.create({
+    //Create appointment (PENDING by default)
+    const created = await prisma.appointment.create({
       data: {
         date: start,
         endTime: end,
         duration: data.duration,
         reason: data.reason,
-        emergency: data.emergency,
+        emergency: !!data.emergency,
         petId: data.petId,
         clinicId: data.clinicId,
         vetId: data.vetId,
-        ownerId: userId
-      }
+        ownerId: user.userId,
+        status: AppointmentStatus.PENDING,
+      },
+      include: {
+        pet: { select: { id: true, name: true, species: true } },
+        vet: { select: { id: true, name: true } },
+        clinic: { select: { id: true, name: true } },
+      },
     });
 
-    return res.status(201).json({ appointment });
-
+    return res.status(201).json(created);
   } catch (err: any) {
     if (err instanceof z.ZodError) {
-      return res.status(400).json({ message: err.errors });
+      return res.status(400).json({ error: 'Bad Request', details: err.flatten() });
     }
-    console.error(err);
-    return res.status(500).json({ message: 'Failed to create appointment' });
+    console.error('[appointments] create error', err);
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
 };
-
 
 export const getMyAppointments = async (req: Request, res: Response) => {
   const userId = (req as any).user.userId;
