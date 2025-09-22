@@ -14,6 +14,7 @@
   import docsRouter from './routes/docs';
   import systemRoutes from './routes/system';
   import { authLimiter, bookingLimiter } from './middlewares/rateLimit';
+  import { scheduleIdempotencyCleanup } from './jobs/cleanupIdempotency';
 
   // Load environment variables from .env file
   dotenv.config();
@@ -41,6 +42,9 @@
 
   // Schedule the reminder job
   scheduleReminderJob();
+
+  // Schedule the idempotency cleanup job
+  scheduleIdempotencyCleanup();
 
   // Basic route to check server status
   app.get('/', (req, res) => {
