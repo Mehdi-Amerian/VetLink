@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { AppointmentStatus } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../config/prismaClient';
-
+import { parseClientToUtc } from '../utils/time';
 
 // 1) Validate input: date (ISO string) + duration (minutes) + other required fields
 const appointmentSchema = z.object({
@@ -24,7 +24,7 @@ export const createAppointment = async (req: Request, res: Response) => {
   try {
     const data = appointmentSchema.parse(req.body);
 
-    const start = new Date(data.date);
+    const start = parseClientToUtc(data.date);
     const end = new Date(start.getTime() + data.duration * 60_000);
 
     //Owner can only book for their own pet
@@ -226,7 +226,7 @@ export const updateAppointmentTime = async (req: Request, res: Response) => {
   const { id } = req.params;
   const { date, duration } = req.body; // same validation as above
 
-  const newStart = new Date(date);
+  const newStart = parseClientToUtc(date);
   const newEnd   = new Date(newStart.getTime() + duration * 60_000);
 
   //Fetch existing appointment + verify permissions
