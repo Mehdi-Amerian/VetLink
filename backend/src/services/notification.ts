@@ -1,13 +1,33 @@
 import prisma from '../config/prismaClient';
-import { format } from 'date-fns-tz';
+import { formatInTimeZone } from 'date-fns-tz';
 import sendgrid from '@sendgrid/mail';
 import { appointmentReminderTemplate } from './templates';
+import { createUnsubscribeToken } from './unsubscribe';
 
 sendgrid.setApiKey(process.env.SENDGRID_API_KEY!);
+
 const TZ = process.env.TIMEZONE || 'Europe/Helsinki';
+const APP_URL = (process.env.APP_URL || 'http://localhost:4000').replace(/\/+$/, '');
 
 export async function sendEmail(to: string, subject: string, html: string) {
   await sendgrid.send({ to, from: process.env.NOTIFY_FROM_EMAIL!, subject, html });
+}
+
+export async function buildReminderEmail(userId: string, toEmail: string, htmlBody: string) {
+  const token = await createUnsubscribeToken(userId, 30);
+  const unsubscribeUrl = `${APP_URL}/api/notifications/unsubscribe/${token}`;
+
+  const footer = `
+    <p style="margin-top:16px;color:#666;font-size:12px">
+      Don’t want email reminders? <a href="${unsubscribeUrl}">Unsubscribe</a>.
+    </p>
+  `;
+
+  return {
+    to: toEmail,
+    subject: 'VetLink appointment reminder',
+    html: htmlBody + footer,
+  };
 }
 
 export async function sendRemindersForWindow(start: Date, end: Date) {
@@ -20,22 +40,40 @@ export async function sendRemindersForWindow(start: Date, end: Date) {
   });
 
   for (const a of appts) {
-    const pref = await prisma.notificationPreference.findUnique({ where: { userId: a.ownerId } });
-    if (!pref?.emailEnabled || !a.owner.email) continue;
+    const owner = a.owner;
+    if (!owner?.email) continue;
 
-    const dateStr = format(a.date, 'yyyy-MM-dd HH:mm', { timeZone: TZ });
-    const html = appointmentReminderTemplate({
-      ownerName: a.owner.fullName,
+    // Check notification preferences (create default if missing)
+    const pref = await prisma.notificationPreference.upsert({
+      where: { userId: a.ownerId },
+      update: {},
+      create: { userId: a.ownerId, emailEnabled: true },
+    });
+    if (!pref.emailEnabled) continue;
+
+    // Format appointment time in the clinic/user timezone (Helsinki for pilot)
+    const dateStr = formatInTimeZone(a.date, TZ, 'yyyy-MM-dd HH:mm');
+
+    // Build the core HTML from your template
+    const baseHtml = appointmentReminderTemplate({
+      ownerName: owner.fullName,
       petName: a.pet.name,
       dateStr,
       clinicName: a.clinic.name,
     });
 
-    let success = true, detail: string | undefined;
+    // Append unsubscribe link
+    const email = await buildReminderEmail(a.ownerId, owner.email, baseHtml);
+
+    let success = true;
+    let detail: string | undefined = undefined;
+
     try {
-      await sendEmail(a.owner.email, 'VetLink appointment reminder', html);
+      await sendEmail(email.to, email.subject, email.html);
     } catch (err: any) {
-      success = false; detail = err?.message || 'sendgrid_error';
+      success = false;
+      detail = err?.message || 'sendgrid_error';
+      console.error('[sendReminders] send error', err);
     } finally {
       await prisma.notificationLog.create({
         data: { appointmentId: a.id, sentVia: 'email', success, detail },

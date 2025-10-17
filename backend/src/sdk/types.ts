@@ -282,6 +282,27 @@ export interface paths {
         patch: operations["notificationsUpdatePreferences"];
         trace?: never;
     };
+    "/api/notifications/unsubscribe/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One-click email unsubscribe
+         * @description Disables email reminders for the user associated with the token. The link is opaque, expiring, and single-use, but the operation is idempotent.
+         *
+         */
+        get: operations["notificationsUnsubscribeEmail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dashboard/export/appointments.csv": {
         parameters: {
             query?: never;
@@ -1517,6 +1538,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    notificationsUnsubscribeEmail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unsubscribed (idempotent) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            /** @description Invalid or expired token */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
                 };
             };
         };

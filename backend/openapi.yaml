@@ -747,6 +747,29 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/notifications/unsubscribe/{token}:
+    get:
+      tags: [Notifications]
+      summary: One-click email unsubscribe
+      operationId: notificationsUnsubscribeEmail
+      description: |
+        Disables email reminders for the user associated with the token. The link is opaque, expiring, and single-use, but the operation is idempotent.
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Unsubscribed (idempotent)
+          content:
+            text/html:
+              schema: { type: string }
+        '400':
+          description: Invalid or expired token
+          content:
+            text/html:
+              schema: { type: string }
 
   /api/dashboard/export/appointments.csv:
     get:
