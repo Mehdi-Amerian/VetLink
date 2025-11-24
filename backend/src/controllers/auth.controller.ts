@@ -11,7 +11,6 @@ const signupSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   fullName: z.string(),
-  role: z.enum(['OWNER', 'VET', 'CLINIC_ADMIN'])
 });
 
 // User signup function
@@ -33,7 +32,7 @@ export const signup = async (req: Request, res: Response) => {
         email: data.email,
         password: hashedPassword,
         fullName: data.fullName,
-        role: data.role
+        role: 'OWNER'
       }
     });
 
