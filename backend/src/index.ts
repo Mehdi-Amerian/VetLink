@@ -15,6 +15,7 @@
   import systemRoutes from './routes/system';
   import { authLimiter, bookingLimiter } from './middlewares/rateLimit';
   import { scheduleIdempotencyCleanup } from './jobs/cleanupIdempotency';
+  import adminInvitesRoutes from './routes/adminInvites.routes';
 
   // Load environment variables from .env file
   dotenv.config();
@@ -39,6 +40,7 @@
   app.use('/api/notifications', notificationsRouter);
   app.use('/api/auth', authLimiter);
   app.use('/api/appointments', bookingLimiter);
+  app.use('/api/admin', adminInvitesRoutes);
 
   // Schedule the reminder job
   scheduleReminderJob();
