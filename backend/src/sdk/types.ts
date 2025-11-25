@@ -239,7 +239,13 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create an appointment */
+        /**
+         * Create an appointment
+         * @description Idempotent create. Provide an `Idempotency-Key` header per create attempt.
+         *     Retries with the same key and identical body return the original response.
+         *     Reusing a key with a different body or endpoint returns 409.
+         *
+         */
         post: operations["appointmentsCreate"];
         delete?: never;
         options?: never;
@@ -314,6 +320,57 @@ export interface paths {
         get: operations["dashboardExportAppointmentsCsv"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/clinics/invite-admin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Invite a clinic admin (SUPER_ADMIN only) */
+        post: operations["adminInviteClinicAdmin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/vets/invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Invite a vet (CLINIC_ADMIN only) */
+        post: operations["adminInviteVet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/accept-invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept an invite and set password */
+        post: operations["authAcceptInvite"];
         delete?: never;
         options?: never;
         head?: never;
@@ -564,6 +621,29 @@ export interface components {
             slotsByVet: {
                 [key: string]: string[];
             };
+        };
+        Invite: {
+            /** Format: uuid */
+            id: string;
+            token: string;
+            /** Format: email */
+            email: string;
+            role: components["schemas"]["Role"];
+            /** Format: uuid */
+            clinicId?: string | null;
+            /** Format: uuid */
+            vetId?: string | null;
+            /** Format: date-time */
+            usedAt?: string | null;
+            /** Format: date-time */
+            expiresAt: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AcceptInviteDTO: {
+            token: string;
+            fullName: string;
+            password: string;
         };
         /** @description If role is omitted, server will default to OWNER. */
         SignupDTO: {
@@ -1349,9 +1429,9 @@ export interface operations {
     appointmentsCreate: {
         parameters: {
             query?: never;
-            header?: {
+            header: {
                 /** @description Use to safely retry without double-booking */
-                "Idempotency-Key"?: string;
+                "Idempotency-Key": string;
             };
             path?: never;
             cookie?: never;
@@ -1371,7 +1451,7 @@ export interface operations {
                     "application/json": components["schemas"]["Appointment"];
                 };
             };
-            /** @description Bad Request */
+            /** @description Bad Request (missing/invalid Idempotency-Key or invalid body) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -1398,7 +1478,8 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Conflicting appointment exists */
+            /** @description Conflict. Either: - the requested time slot overlaps an existing appointment, or - the Idempotency-Key was reused with a different request body or endpoint.
+             *      */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1602,6 +1683,185 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    adminInviteClinicAdmin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: email */
+                    email: string;
+                    /** Format: uuid */
+                    clinicId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Invite created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        invite?: components["schemas"]["Invite"];
+                    };
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden (not SUPER_ADMIN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Clinic not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    adminInviteVet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: email */
+                    email: string;
+                    /** Format: uuid */
+                    vetId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Invite created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        invite?: components["schemas"]["Invite"];
+                    };
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden (not CLINIC_ADMIN or vet not in clinic) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Vet not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    authAcceptInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptInviteDTO"];
+            };
+        };
+        responses: {
+            /** @description Account created from invite */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        token?: string;
+                        user?: components["schemas"]["User"];
+                    };
+                };
+            };
+            /** @description Invalid or expired token, or bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Invite already used or conflicting */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
