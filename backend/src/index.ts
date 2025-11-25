@@ -26,7 +26,7 @@
 
   // Middleware
   app.use(helmet());
-  app.use(cors({ origin: ['http://localhost:3001', 'https://app.vetlink.fi'], credentials: true }));
+  app.use(cors({ origin: ['http://localhost:3000', 'https://app.vetlink.fi'], credentials: true }));
   app.use(express.json());
   app.set('trust proxy', 1);
 
