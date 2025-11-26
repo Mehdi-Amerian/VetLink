@@ -6,6 +6,19 @@ export async function login(email: string, password: string): Promise<LoginRespo
   return data;
 }
 
+export interface AcceptInvitePayload {
+  token: string;
+  fullName: string;
+  password: string;
+}
+
+export async function acceptInvite(
+  payload: AcceptInvitePayload
+): Promise<LoginResponse> {
+  const { data } = await api.post<LoginResponse>('/auth/accept-invite', payload);
+  return data;
+}
+
 export async function me(): Promise<User> {
   const { data } = await api.get<User>('/auth/me');
   return data;
