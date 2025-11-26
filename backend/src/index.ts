@@ -15,6 +15,8 @@
   import systemRoutes from './routes/system';
   import { authLimiter, bookingLimiter } from './middlewares/rateLimit';
   import { scheduleIdempotencyCleanup } from './jobs/cleanupIdempotency';
+  import adminInvitesRoutes from './routes/adminInvites.routes';
+  import acceptInviteRoutes from './routes/acceptInvite.routes';
 
   // Load environment variables from .env file
   dotenv.config();
@@ -24,7 +26,7 @@
 
   // Middleware
   app.use(helmet());
-  app.use(cors({ origin: ['http://localhost:3001', 'https://app.vetlink.fi'], credentials: true }));
+  app.use(cors({ origin: ['http://localhost:3000', 'https://app.vetlink.fi'], credentials: true }));
   app.use(express.json());
   app.set('trust proxy', 1);
 
@@ -39,6 +41,8 @@
   app.use('/api/notifications', notificationsRouter);
   app.use('/api/auth', authLimiter);
   app.use('/api/appointments', bookingLimiter);
+  app.use('/api/admin', adminInvitesRoutes);
+  app.use('/api/auth', acceptInviteRoutes);
 
   // Schedule the reminder job
   scheduleReminderJob();

@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../config/prismaClient';
+import { signJwt } from '../utils/jwt';
 
 
 // Define the schema for user signup
@@ -11,7 +12,6 @@ const signupSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   fullName: z.string(),
-  role: z.enum(['OWNER', 'VET', 'CLINIC_ADMIN'])
 });
 
 // User signup function
@@ -33,15 +33,11 @@ export const signup = async (req: Request, res: Response) => {
         email: data.email,
         password: hashedPassword,
         fullName: data.fullName,
-        role: data.role
+        role: 'OWNER'
       }
     });
 
-    const token = jwt.sign(
-      { userId: user.id, role: user.role },
-      process.env.JWT_SECRET as string,
-      { expiresIn: '1h' }
-    );
+    const token = signJwt({ userId: user.id, role: user.role });
 
     res.status(201).json({
       message: 'User created successfully',
@@ -83,11 +79,7 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
-    const token = jwt.sign(
-      { userId: user.id, role: user.role },
-      process.env.JWT_SECRET as string,
-      { expiresIn: '1h' }
-    );
+    const token = signJwt({ userId: user.id, role: user.role });
 
     res.json({
       message: 'Login successful',

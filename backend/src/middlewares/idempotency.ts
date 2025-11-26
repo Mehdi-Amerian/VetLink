@@ -20,7 +20,7 @@ export async function idempotencyMiddleware(req: Request, res: Response, next: N
   const path = req.baseUrl + (req.route?.path ?? '');
   const method = req.method.toUpperCase();
   const bodyHash = hashJsonStable(req.body ?? {});
-  const userId = (req as any).userId ?? null;
+  const userId = (req as any).user?.userId ?? null;
 
   try {
     const existing = await prisma.idempotencyRequest.findUnique({ where: { key } });
