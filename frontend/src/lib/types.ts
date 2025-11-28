@@ -1,48 +1,27 @@
-export type Role = 'OWNER' | 'VET' | 'CLINIC_ADMIN' | 'SUPER_ADMIN';
+import type { components } from '../../../backend/src/sdk/types';
 
+export type Role = components['schemas']['Role'];
 
-export interface User {
-id: string;
-role: Role;
-fullName: string;
-email: string;
-clinicId?: string;
-vetId?: string;
-}
+export type User = components['schemas']['User'];
+export type Clinic = components['schemas']['Clinic'];
+export type Vet = components['schemas']['Vet'];
+export type Pet = components['schemas']['Pet'];
+export type Appointment = components['schemas']['Appointment'];
+export type AppointmentStatus = components['schemas']['AppointmentStatus'];
 
+export type LoginResponse = components['schemas']['AuthResponse'];
 
-export interface LoginResponse {
-token: string;
-user: User;
-}
+export type SlotsResponse = components['schemas']['SlotsResponse'];
+export type ClinicSlotsResponse = components['schemas']['ClinicSlotsResponse'];
 
-
-export interface Pet { id: string; name: string; species: string; ownerId: string; }
-export interface Clinic { id: string; name: string; }
-export interface Vet { id: string; fullName: string; clinicId: string; }
-
-
-export type AppointmentStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
-
-
-export interface Appointment {
-id: string;
-date: string; // UTC ISO from server
-endTime: string; // UTC ISO
-duration: number;
-reason: string;
-emergency: boolean;
-petId: string;
-ownerId: string;
-clinicId: string;
-vetId: string;
-status: AppointmentStatus;
-pet?: Pet;
-vet?: Vet;
-clinic?: Clinic;
-}
-
-
+// UI-only slot representation
 export interface Slot {
-time: string; // 'HH:mm' in local Helsinki day for the query date
+  time: string; // 'HH:mm' for the selected date in local time
+}
+
+//UI-friendly appointment including expansions
+export interface OwnerAppointment extends Appointment {
+  pet?: Pet;
+  vet?: Vet;
+  clinic?: Clinic;
 }

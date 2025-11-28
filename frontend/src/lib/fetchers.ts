@@ -1,44 +1,45 @@
-import { api, withIdempotency } from './api';
-import type { Appointment, Pet, Slot, Clinic, Vet } from './types';
-import { v4 as uuidv4 } from 'uuid';
+// src/lib/fetchers.ts
+import { api, withIdempotency } from "./api";
+import { v4 as uuidv4 } from "uuid";
+import type {
+  Appointment,
+  OwnerAppointment,
+  Pet,
+  Slot,
+  Clinic,
+  Vet,
+  SlotsResponse,
+  ClinicSlotsResponse,
+} from './types';
 
-// Generic helper to extract an array either from the root or from a named field
-function unwrapArray<T>(data: unknown, key: string): T[] {
+function unwrapArray<T>(data: unknown, field?: string): T[] {
+  // If the whole payload is an array → use it
   if (Array.isArray(data)) {
     return data as T[];
   }
 
-  if (data && typeof data === 'object') {
-    const value = (data as Record<string, unknown>)[key];
-    if (Array.isArray(value)) {
-      return value as T[];
-    }
+  // If it's an object with a field that is an array → use that
+  if (
+    field &&
+    data &&
+    typeof data === 'object' &&
+    Array.isArray((data as any)[field])
+  ) {
+    return (data as any)[field] as T[];
   }
 
+  // Fallback: nothing usable
   return [];
 }
 
-// Slots helper: backend returns { ..., slots: ["09:00", "09:30"] }
-function unwrapSlots(data: unknown): Slot[] {
-  if (Array.isArray(data)) {
-    return data as Slot[];
-  }
 
-  if (data && typeof data === 'object') {
-    const rawSlots = (data as Record<string, unknown>)['slots'];
-    if (Array.isArray(rawSlots)) {
-      // Map "09:00" -> { time: "09:00" }
-      return rawSlots.map((s) => ({ time: String(s) })) as Slot[];
-    }
-  }
-
-  return [];
-}
+// ----- basic list fetchers -----
 
 export async function getPets(): Promise<Pet[]> {
   const { data } = await api.get('/pets');
   return unwrapArray<Pet>(data, 'pets');
 }
+
 
 export async function getClinics(): Promise<Clinic[]> {
   const { data } = await api.get('/clinics');
@@ -49,18 +50,28 @@ export async function getVets(clinicId?: string): Promise<Vet[]> {
   const { data } = await api.get('/vets', {
     params: clinicId ? { clinicId } : {},
   });
-  return unwrapArray<Vet>(data, 'vets');
+
+  // supports both `Vet[]` and `{ vets: Vet[] }`
+  const vets = unwrapArray<Vet>(data, 'vets');
+
+  return clinicId ? vets.filter((v) => v.clinicId === clinicId) : vets;
 }
+
+
+// ----- slots -----
 
 export async function getVetSlots(
   vetId: string,
   date: string,
   duration = 30
 ): Promise<Slot[]> {
-  const { data } = await api.get(`/availability/vets/${vetId}/available-slots`, {
-    params: { date, duration },
-  });
-  return unwrapSlots(data);
+  const { data } = await api.get<SlotsResponse>(
+    `/availability/vets/${vetId}/available-slots`,
+    { params: { date, duration } }
+  );
+
+  // SlotsResponse: { vetId, date, duration, slots: string[] }
+  return (data.slots ?? []).map((time) => ({ time }));
 }
 
 export async function getClinicSlots(
@@ -69,24 +80,45 @@ export async function getClinicSlots(
   duration = 30,
   vetId?: string
 ): Promise<Slot[]> {
-  const { data } = await api.get(`/availability/clinics/${clinicId}/available-slots`, {
-    params: { date, duration, ...(vetId ? { vetId } : {}) },
+  const { data } = await api.get<ClinicSlotsResponse>(
+    `/availability/clinics/${clinicId}/available-slots`,
+    { params: { date, duration, ...(vetId ? { vetId } : {}) } }
+  );
+
+  const byVet = data.slotsByVet ?? {};
+
+  if (vetId) {
+    const raw = byVet[vetId] ?? [];
+    return raw.map((time) => ({ time }));
+  }
+
+  const all: Slot[] = [];
+  Object.values(byVet).forEach((arr) => {
+    arr.forEach((time) => all.push({ time }));
   });
-  return unwrapSlots(data);
+  return all;
 }
 
-export async function getMyAppointments(): Promise<Appointment[]> {
-  const { data } = await api.get('/appointments');
-  return unwrapArray<Appointment>(data, 'appointments');
+// ----- appointments (owner + vet views) -----
+
+export async function getMyAppointments(): Promise<OwnerAppointment[]> {
+  const { data } = await api.get<{ appointments: OwnerAppointment[] }>(
+    '/appointments'
+  );
+  return data.appointments;
 }
 
 export async function getMyVetAppointments(): Promise<Appointment[]> {
-  const { data } = await api.get('/appointments/vet');
-  return unwrapArray<Appointment>(data, 'appointments');
+  const { data } = await api.get<{ appointments: Appointment[] }>(
+    '/appointments/vet'
+  );
+  return data.appointments;
 }
 
+// ----- create/update appointments -----
+
 export async function createAppointment(payload: {
-  dateUtcIso: string; // server expects local ISO; we send explicit UTC or local HH:mm converted
+  dateUtcIso: string;
   duration: number;
   reason: string;
   emergency: boolean;
@@ -106,16 +138,22 @@ export async function createAppointment(payload: {
     vetId: payload.vetId,
   };
 
-  const { data } = await api.post('/appointments', body, withIdempotency({}, idem));
-  return data as Appointment;
+  const { data } = await api.post<Appointment>(
+    '/appointments',
+    body,
+    withIdempotency({}, idem)
+  );
+  return data;
 }
 
 export async function updateAppointmentStatus(
   id: string,
   status: 'CONFIRMED' | 'CANCELLED' | 'COMPLETED'
 ): Promise<Appointment> {
-  const { data } = await api.patch(`/appointments/${id}/status`, { status });
-  return data as Appointment;
+  const { data } = await api.patch<Appointment>(`/appointments/${id}/status`, {
+    status,
+  });
+  return data;
 }
 
 export async function rescheduleAppointment(
@@ -123,21 +161,27 @@ export async function rescheduleAppointment(
   dateUtcIso: string,
   duration: number
 ): Promise<Appointment> {
-  const { data } = await api.patch(`/appointments/${id}`, {
+  const { data } = await api.patch<Appointment>(`/appointments/${id}`, {
     date: dateUtcIso,
     duration,
   });
-  return data as Appointment;
+  return data;
 }
 
-export async function getNotificationPref(): Promise<{ emailEnabled: boolean }> {
+// ----- notifications -----
+
+export async function getNotificationPref(): Promise<{
+  emailEnabled: boolean;
+}> {
   const { data } = await api.get('/notifications/preferences');
-  return data;
+  return { emailEnabled: data.emailEnabled };
 }
 
 export async function setNotificationPref(
   emailEnabled: boolean
 ): Promise<{ emailEnabled: boolean }> {
-  const { data } = await api.patch('/notifications/preferences', { emailEnabled });
-  return data;
+  const { data } = await api.patch('/notifications/preferences', {
+    emailEnabled,
+  });
+  return { emailEnabled: data.emailEnabled };
 }
