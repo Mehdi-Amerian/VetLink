@@ -6,6 +6,19 @@ export async function login(email: string, password: string): Promise<LoginRespo
   return data;
 }
 
+export async function signup(
+  email: string,
+  password: string,
+  fullName: string
+): Promise<LoginResponse> {
+  const { data } = await api.post<LoginResponse>('/auth/signup', {
+    email,
+    password,
+    fullName,
+  });
+  return data;
+}
+
 export interface AcceptInvitePayload {
   token: string;
   fullName: string;

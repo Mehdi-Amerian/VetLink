@@ -57,6 +57,28 @@ export async function getVets(clinicId?: string): Promise<Vet[]> {
   return clinicId ? vets.filter((v) => v.clinicId === clinicId) : vets;
 }
 
+// ----- create pets -----
+
+export async function createPetForOwner(params: {
+  name: string;
+  species: string;
+  breed?: string;
+  birthDateYYYYMMDD: string;
+}): Promise<Pet> {
+  const { name, species, breed, birthDateYYYYMMDD } = params;
+
+  // Convert YYYY-MM-DD to full ISO datetime at midnight
+  const birthDateIso = new Date(`${birthDateYYYYMMDD}T00:00:00`).toISOString();
+
+  const { data } = await api.post<Pet>('/pets', {
+    name,
+    species,
+    breed: breed ?? null,
+    birthDate: birthDateIso,
+  });
+
+  return data;
+}
 
 // ----- slots -----
 
