@@ -11,10 +11,29 @@ export default function Home() {
   useEffect(() => {
     if (!user) {
       router.replace('/login');
-    } else if (user.role === 'VET') {
-      router.replace('/dashboard/vet');
-    } else {
-      router.replace('/dashboard/owner');
+      return;
+    }
+
+    // Full role-based routing
+    switch (user.role) {
+      case 'OWNER':
+        router.replace('/dashboard/owner');
+        break;
+
+      case 'VET':
+        router.replace('/dashboard/vet');
+        break;
+
+      case 'CLINIC_ADMIN':
+        router.replace('/dashboard/clinic-admin');
+        break;
+
+      case 'SUPER_ADMIN':
+        router.replace('/dashboard/super-admin');
+        break;
+
+      default:
+        router.replace('/login'); // fallback
     }
   }, [user, router]);
 
