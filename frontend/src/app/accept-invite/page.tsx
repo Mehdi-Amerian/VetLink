@@ -10,6 +10,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
+const MIN_PASSWORD_LENGTH = 8;
+const NAME_REGEX = /^[A-Za-zÀ-ÖØ-öø-ÿ' -]+$/;
+
 export default function AcceptInvitePage() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -27,8 +30,12 @@ export default function AcceptInvitePage() {
     }
   }, [searchParams]);
 
+  const nameTrimed = fullName.trim();
+  const nameValid = nameTrimed.length > 0 && NAME_REGEX.test(nameTrimed);
+  const passwordValid = password.length >= MIN_PASSWORD_LENGTH;
+
   const canSubmit =
-    !!token && fullName.trim().length > 0 && password.trim().length >= 6;
+    !!token && nameValid && passwordValid && !loading;
 
   const onSubmit = async () => {
     if (!canSubmit || !token) return;
@@ -37,7 +44,7 @@ export default function AcceptInvitePage() {
     try {
       const { token: jwt, user } = await acceptInvite({
         token,
-        fullName,
+        fullName: nameTrimed,
         password,
       });
       setSession(jwt, user);
@@ -81,8 +88,17 @@ export default function AcceptInvitePage() {
           <Input
             id="fullName"
             value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value;
+              const cleaned = value.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ' -]/g, '');
+              setFullName(cleaned);
+            }}
           />
+          {nameTrimed.length > 0 && !nameValid && (
+            <p className="text-xs text-red-500 mt-1">
+              Name can only contain letters, spaces, apostrophes, and hyphens.
+            </p>
+          )}
         </div>
 
         <div className="space-y-1">
@@ -93,13 +109,18 @@ export default function AcceptInvitePage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-          <p className="text-xs text-gray-400">At least 6 characters.</p>
+          <p className="text-xs text-gray-400">At least {MIN_PASSWORD_LENGTH} characters.</p>
+          {password.length > 0 && !passwordValid && (
+            <p className="text-xs text-red-500 mt-1">
+              Password must be at least {MIN_PASSWORD_LENGTH} characters long.
+            </p>
+          )}
         </div>
 
         <Button
           className="w-full"
           onClick={onSubmit}
-          disabled={!canSubmit || loading}
+          disabled={!canSubmit}
         >
           {loading ? 'Activating…' : 'Activate account'}
         </Button>
