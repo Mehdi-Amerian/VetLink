@@ -207,3 +207,25 @@ export async function setNotificationPref(
   });
   return { emailEnabled: data.emailEnabled };
 }
+
+// --- admin invite helpers ---
+
+interface InviteClinicAdminPayload {
+  email: string;
+  clinicId: string;
+}
+
+export async function inviteClinicAdmin(payload: InviteClinicAdminPayload) {
+  const { data } = await api.post('/admin/clinics/invite-admin', payload);
+  return data;
+}
+
+interface InviteVetPayload {
+  email: string;
+  vetId: string;
+}
+
+export async function inviteVet(payload: InviteVetPayload) {
+  const { data } = await api.post('/admin/vets/invite', payload);
+  return data;
+}
