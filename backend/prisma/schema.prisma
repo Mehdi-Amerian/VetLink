@@ -36,7 +36,7 @@ model Clinic {
   users        User[]
   name         String
   email        String        @unique
-  phone        String
+  phone        String        @unique
   address      String
   city         String
   zipCode      String
