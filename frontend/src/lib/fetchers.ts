@@ -10,7 +10,7 @@ import type {
   Vet,
   SlotsResponse,
   ClinicSlotsResponse,
-} from './types';
+} from "./types";
 
 function unwrapArray<T>(data: unknown, field?: string): T[] {
   // If the whole payload is an array → use it
@@ -22,7 +22,7 @@ function unwrapArray<T>(data: unknown, field?: string): T[] {
   if (
     field &&
     data &&
-    typeof data === 'object' &&
+    typeof data === "object" &&
     Array.isArray((data as any)[field])
   ) {
     return (data as any)[field] as T[];
@@ -32,27 +32,30 @@ function unwrapArray<T>(data: unknown, field?: string): T[] {
   return [];
 }
 
-
 // ----- basic list fetchers -----
 
 export async function getPets(): Promise<Pet[]> {
-  const { data } = await api.get('/pets');
-  return unwrapArray<Pet>(data, 'pets');
+  const { data } = await api.get("/pets");
+  return unwrapArray<Pet>(data, "pets");
 }
 
-
 export async function getClinics(): Promise<Clinic[]> {
-  const { data } = await api.get('/clinics');
-  return unwrapArray<Clinic>(data, 'clinics');
+  const { data } = await api.get("/clinics");
+  return unwrapArray<Clinic>(data, "clinics");
+}
+
+export async function getClinicById(id: string): Promise<Clinic> {
+  const { data } = await api.get(`/clinics/${id}`);
+  return data.clinic as Clinic;
 }
 
 export async function getVets(clinicId?: string): Promise<Vet[]> {
-  const { data } = await api.get('/vets', {
+  const { data } = await api.get("/vets", {
     params: clinicId ? { clinicId } : {},
   });
 
   // supports both `Vet[]` and `{ vets: Vet[] }`
-  const vets = unwrapArray<Vet>(data, 'vets');
+  const vets = unwrapArray<Vet>(data, "vets");
 
   return clinicId ? vets.filter((v) => v.clinicId === clinicId) : vets;
 }
@@ -70,7 +73,7 @@ export async function createPetForOwner(params: {
   // Convert YYYY-MM-DD to full ISO datetime at midnight
   const birthDateIso = new Date(`${birthDateYYYYMMDD}T00:00:00`).toISOString();
 
-  const { data } = await api.post<Pet>('/pets', {
+  const { data } = await api.post<Pet>("/pets", {
     name,
     species,
     breed: breed ?? null,
@@ -125,14 +128,14 @@ export async function getClinicSlots(
 
 export async function getMyAppointments(): Promise<OwnerAppointment[]> {
   const { data } = await api.get<{ appointments: OwnerAppointment[] }>(
-    '/appointments'
+    "/appointments"
   );
   return data.appointments;
 }
 
 export async function getMyVetAppointments(): Promise<Appointment[]> {
   const { data } = await api.get<{ appointments: Appointment[] }>(
-    '/appointments/vet'
+    "/appointments/vet"
   );
   return data.appointments;
 }
@@ -161,7 +164,7 @@ export async function createAppointment(payload: {
   };
 
   const { data } = await api.post<Appointment>(
-    '/appointments',
+    "/appointments",
     body,
     withIdempotency({}, idem)
   );
@@ -170,7 +173,7 @@ export async function createAppointment(payload: {
 
 export async function updateAppointmentStatus(
   id: string,
-  status: 'CONFIRMED' | 'CANCELLED' | 'COMPLETED'
+  status: "CONFIRMED" | "CANCELLED" | "COMPLETED"
 ): Promise<Appointment> {
   const { data } = await api.patch<Appointment>(`/appointments/${id}/status`, {
     status,
@@ -195,14 +198,14 @@ export async function rescheduleAppointment(
 export async function getNotificationPref(): Promise<{
   emailEnabled: boolean;
 }> {
-  const { data } = await api.get('/notifications/preferences');
+  const { data } = await api.get("/notifications/preferences");
   return { emailEnabled: data.emailEnabled };
 }
 
 export async function setNotificationPref(
   emailEnabled: boolean
 ): Promise<{ emailEnabled: boolean }> {
-  const { data } = await api.patch('/notifications/preferences', {
+  const { data } = await api.patch("/notifications/preferences", {
     emailEnabled,
   });
   return { emailEnabled: data.emailEnabled };
@@ -216,7 +219,7 @@ interface InviteClinicAdminPayload {
 }
 
 export async function inviteClinicAdmin(payload: InviteClinicAdminPayload) {
-  const { data } = await api.post('/admin/clinics/invite-admin', payload);
+  const { data } = await api.post("/admin/clinics/invite-admin", payload);
   return data;
 }
 
@@ -226,6 +229,72 @@ interface InviteVetPayload {
 }
 
 export async function inviteVet(payload: InviteVetPayload) {
-  const { data } = await api.post('/admin/vets/invite', payload);
+  const { data } = await api.post("/admin/vets/invite", payload);
   return data;
+}
+
+// create clinics
+export async function createClinic(payload: {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  zipCode: string;
+  emergency?: boolean;
+}): Promise<Clinic> {
+  const body = {
+    ...payload,
+    emergency: payload.emergency ?? false,
+  };
+
+  const { data } = await api.post("/clinics", body);
+  const clinic: Clinic =
+    data && typeof data === "object" && "id" in data
+      ? (data as Clinic)
+      : (data.clinic as Clinic);
+  return clinic;
+}
+
+// update clinics
+export async function updateClinic(
+  id: string,
+  payload: Partial<
+    Pick<
+      Clinic,
+      "name" | "email" | "phone" | "address" | "city" | "zipCode" | "emergency"
+    >
+  >
+): Promise<Clinic> {
+  const { data } = await api.patch(`/clinics/${id}`, payload);
+  return data.clinic as Clinic;
+}
+
+// Create vet, then invite them via email
+export interface CreateVetAndInvitePayload {
+  clinicId: string;
+  name: string;
+  specialization?: string;
+  email: string;
+}
+
+export async function createVetAndInvite(
+  payload: CreateVetAndInvitePayload
+): Promise<Vet> {
+  // 1) Create the vet record (clinic inferred from logged-in clinic admin)
+  const { data } = await api.post<{ vet: Vet }>('/vets', {
+    name: payload.name,
+    specialization: payload.specialization ?? undefined,
+  });
+
+  const vet = data.vet;
+
+  // 2) Send invite email
+  await api.post('/admin/vets/invite', {
+    email: payload.email,
+    vetId: vet.id,
+  });
+
+  // 3) Return the full Vet object
+  return vet;
 }
