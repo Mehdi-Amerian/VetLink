@@ -15,15 +15,15 @@ const availabilitySchema = z.object({
  * VET creates an availability window
  */
 export const addAvailability = async (req: Request, res: Response) => {
-  const vetUser = (req as any).user;
+  const {userId} = (req as any).user;
 
   try {
-    const vet = await prisma.user.findUnique({
-      where: { id: vetUser.userId },
-      include: { vetProfile: true }
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { vetId: true },
     });
 
-    if (!vet?.vetProfile?.id) {
+    if (!user?.vetId) {
       return res.status(400).json({ message: 'No vet profile linked to this account' });
     }
 
@@ -32,7 +32,7 @@ export const addAvailability = async (req: Request, res: Response) => {
     const availability = await prisma.availability.create({
       data: {
         ...data,
-        vetId: vet.vetProfile.id
+        vetId: user.vetId
       }
     });
 

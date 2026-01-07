@@ -44,18 +44,20 @@ const dateFilter = dateFrom ? { gte: dateFrom } : undefined;
     }
 
     if (role === 'VET') {
-      const vet = await prisma.user.findUnique({
+      const user = await prisma.user.findUnique({
         where: { id: userId },
-        include: { vetProfile: true }
+        select : { vetId: true }
       });
 
-      if (!vet?.vetProfile?.id) {
+      if (!user?.vetId) {
         return res.status(400).json({ message: 'No vet profile linked' });
       }
 
+      const vetId = user.vetId;
+
       const appointmentsToday = await prisma.appointment.count({
         where: {
-          vetId: vet.vetProfile.id,
+          vetId,
           date: {
             gte: new Date(new Date().setHours(0, 0, 0, 0)),
             lte: new Date(new Date().setHours(23, 59, 59, 999))},
@@ -64,17 +66,17 @@ const dateFilter = dateFrom ? { gte: dateFrom } : undefined;
       });
 
       const pending = await prisma.appointment.count({
-        where: { vetId: vet.vetProfile.id, status: 'PENDING', date: dateFilter }
+        where: { vetId, status: 'PENDING', date: dateFilter }
       });
 
       const confirmed = await prisma.appointment.count({
-        where: { vetId: vet.vetProfile.id, status: 'CONFIRMED', date: dateFilter }
+        where: { vetId, status: 'CONFIRMED', date: dateFilter }
       });
 
       const appointmentsGrouped = await prisma.appointment.groupBy({
         by: ['date'],
         where: {
-            vetId: vet.vetProfile.id,
+            vetId,
             date: dateFilter
         },
         _count: true,
@@ -144,12 +146,12 @@ export const exportAppointmentsCsv = async (req: Request, res: Response) => {
   let where: any = {};
   if (role === 'OWNER') where.ownerId = userId;
   else if (role === 'VET') {
-    const vet = await prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: { vetProfile: true }
+      select : { vetId: true }
     });
-    if (!vet?.vetProfile?.id) return res.status(400).json({ message: 'No vet profile linked' });
-    where.vetId = vet.vetProfile.id;
+    if (!user?.vetId) return res.status(400).json({ message: 'No vet profile linked' });
+    where.vetId = user.vetId;
   } else if (role === 'CLINIC_ADMIN') {
     const admin = await prisma.user.findUnique({ where: { id: userId } });
     if (!admin?.clinicId) return res.status(400).json({ message: 'No clinic linked' });

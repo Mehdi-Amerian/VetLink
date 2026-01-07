@@ -114,15 +114,15 @@ export const getAppointmentsForVet = async (req: Request, res: Response) => {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    include: { vetProfile: true }
+    select: { vetId: true }
   });
 
-  if (!user?.vetProfile?.id) {
+  if (!user?.vetId) {
     return res.status(403).json({ message: 'No vet profile linked to this user' });
   }
 
   const appointments = await prisma.appointment.findMany({
-    where: { vetId: user.vetProfile.id },
+    where: { vetId: user.vetId },
     include: {
       pet: true,
       owner: true,
