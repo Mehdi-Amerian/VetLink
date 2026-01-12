@@ -5,9 +5,8 @@ import { prisma } from '../config/prismaClient';
 
 
 const vetSchema = z.object({
-  name: z.string(),
+  name: z.string().min(1, "Name is required"),
   specialization: z.string().optional(),
-  email: z.string().email()
 });
 
 export const createVet = async (req: Request, res: Response) => {
@@ -31,11 +30,6 @@ export const createVet = async (req: Request, res: Response) => {
         specialization: data.specialization,
         clinicId: clinicAdmin.clinicId
       }
-    });
-
-    await prisma.user.update({
-      where: {email: data.email },
-      data: { vetId: vet.id }
     });
 
     res.status(201).json({ vet });
