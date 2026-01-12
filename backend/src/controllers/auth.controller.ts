@@ -79,17 +79,28 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
-    const token = signJwt({ userId: user.id, role: user.role });
+    const token = signJwt({ 
+      userId: user.id,
+      role: user.role,
+      clinicId: user.clinicId,
+      vetId: user.vetId,
+    });
+
+    const authUser = {
+      id: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      role: user.role,
+      clinicId: user.clinicId,
+      vetId: user.vetId,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
 
     res.json({
       message: 'Login successful',
       token,
-      user: {
-        id: user.id,
-        email: user.email,
-        fullName: user.fullName,
-        role: user.role
-      }
+      user: authUser
     });
 
   } catch (err: any) {
@@ -107,20 +118,24 @@ export const getMe = async (req: Request, res: Response) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        fullName: true,
-        role: true,
-        createdAt: true
-      }
     });
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    res.json({ user });
+    const authUser = {
+      id: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      role: user.role,
+      clinicId: user.clinicId,
+      vetId: user.vetId,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+
+    res.json({ authUser });
   } catch (err) {
     res.status(500).json({ message: 'Internal server error' });
   }
