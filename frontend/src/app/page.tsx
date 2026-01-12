@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
 export default function Home() {
-  const { user } = useAuth();
+  const { user, ready } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
+    if (!ready) return;
+
     if (!user) {
       router.replace('/login');
       return;
@@ -19,23 +21,19 @@ export default function Home() {
       case 'OWNER':
         router.replace('/dashboard/owner');
         break;
-
       case 'VET':
         router.replace('/dashboard/vet');
         break;
-
       case 'CLINIC_ADMIN':
         router.replace('/dashboard/clinic-admin');
         break;
-
       case 'SUPER_ADMIN':
         router.replace('/dashboard/super-admin');
         break;
-
       default:
-        router.replace('/login'); // fallback
+        router.replace('/login');
     }
-  }, [user, router]);
+  }, [user, ready, router]);
 
   return null;
 }
