@@ -8,6 +8,7 @@ import { serverUtcToLocalLabel } from '@/lib/time';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import axios from 'axios';
+import Link from 'next/link';
 
 function VetView() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -56,6 +57,11 @@ function VetView() {
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-4">
+      <Link href="/dashboard/vet/profile">
+        <Button variant="outline" size="sm">
+          Edit profile & availability
+       </Button>
+      </Link>
       <h1 className="text-xl font-semibold">Vet Appointments</h1>
 
       {loading && appointments.length === 0 && (
