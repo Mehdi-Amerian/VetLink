@@ -10,6 +10,8 @@ import type {
   Vet,
   SlotsResponse,
   ClinicSlotsResponse,
+  Availability,
+  Weekday,
 } from "./types";
 
 function unwrapArray<T>(data: unknown, field?: string): T[] {
@@ -59,6 +61,12 @@ export async function getVets(clinicId?: string): Promise<Vet[]> {
 
   return clinicId ? vets.filter((v) => v.clinicId === clinicId) : vets;
 }
+
+export async function getVetById(id: string): Promise<Vet> {
+  const { data } = await api.get(`/vets/${id}`);
+  return (data.vet ?? data) as Vet;
+}
+
 
 // ----- create pets -----
 
@@ -270,6 +278,16 @@ export async function updateClinic(
   return data.clinic as Clinic;
 }
 
+// update my vet profile
+export async function updateMyVetProfile(payload: {
+  name?: string;
+  specialization?: string | null;
+}): Promise<Vet> {
+  const { data } = await api.patch('/vets/me', payload);
+  return (data.vet ?? data) as Vet;
+}
+
+
 // Create vet, then invite them via email
 export interface CreateVetAndInvitePayload {
   clinicId: string;
@@ -297,4 +315,22 @@ export async function createVetAndInvite(
 
   // 3) Return the full Vet object
   return vet;
+}
+
+// ----- availability -----
+
+export async function getAvailabilityForVet(
+  vetId: string
+): Promise<Availability[]> {
+  const { data } = await api.get(`/availability/${vetId}`);
+  return unwrapArray<Availability>(data, 'availability');
+}
+
+export async function addAvailabilityBlock(payload: {
+  day: Weekday;
+  startTime: string;
+  endTime: string;
+}): Promise<Availability> {
+  const { data } = await api.post('/availability', payload);
+  return (data.availability ?? data) as Availability;
 }
