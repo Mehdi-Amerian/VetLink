@@ -25,3 +25,20 @@ export interface OwnerAppointment extends Appointment {
   vet?: Vet;
   clinic?: Clinic;
 }
+
+export type Weekday =
+  | 'MONDAY'
+  | 'TUESDAY'
+  | 'WEDNESDAY'
+  | 'THURSDAY'
+  | 'FRIDAY'
+  | 'SATURDAY'
+  | 'SUNDAY';
+
+export interface Availability {
+  id: string;
+  day: Weekday;
+  startTime: string; // "HH:mm"
+  endTime: string;   // "HH:mm"
+  vetId: string;
+}
