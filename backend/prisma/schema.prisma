@@ -43,6 +43,7 @@ model Clinic {
   emergency    Boolean       @default(false)
   vets         Vet[]
   appointments Appointment[]
+  slotMinutes  Int          @default(30)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 }
@@ -88,7 +89,6 @@ model Appointment {
   id               String            @id @default(uuid())
   date             DateTime
   endTime          DateTime
-  duration         Int
   reason           String
   emergency        Boolean           @default(false)
   pet              Pet               @relation(fields: [petId], references: [id])
@@ -99,7 +99,7 @@ model Appointment {
   clinicId         String
   vet              Vet               @relation(fields: [vetId], references: [id])
   vetId            String
-  status           AppointmentStatus @default(PENDING)
+  cancelledAt      DateTime?
   notificationLogs NotificationLog[]
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
@@ -175,13 +175,6 @@ enum Role {
   VET
   CLINIC_ADMIN
   SUPER_ADMIN
-}
-
-enum AppointmentStatus {
-  PENDING
-  CONFIRMED
-  COMPLETED
-  CANCELLED
 }
 
 enum Weekday {
