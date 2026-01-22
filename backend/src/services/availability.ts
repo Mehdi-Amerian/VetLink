@@ -34,7 +34,7 @@ export async function deleteAvailabilityService(id: string) {
 interface GetSlotsParams {
   vetId: string;
   date: string;       // "YYYY-MM-DD"
-  duration: number;   // minutes
+  slotMinutes: number // minutes
 }
 
 /**
@@ -44,7 +44,7 @@ interface GetSlotsParams {
 export async function getSlotsForVetDay({
   vetId,
   date,
-  duration
+  slotMinutes,
 }: GetSlotsParams): Promise<string[]|undefined> {
   const baseDate = parseISO(date);
   if (isNaN(baseDate.getTime())) throw new Error('Invalid date');
@@ -83,9 +83,9 @@ export async function getSlotsForVetDay({
     let cursor = setMinutes(setHours(baseDate, sh), sm);
     const windowEnd = setMinutes(setHours(baseDate, eh), em);
 
-    while (addMinutes(cursor, duration) <= windowEnd) {
+    while (addMinutes(cursor, slotMinutes) <= windowEnd) {
       candidates.push(cursor);
-      cursor = addMinutes(cursor, duration);
+      cursor = addMinutes(cursor, slotMinutes);
     }
   }
   if (candidates.length === 0) return [];
@@ -96,7 +96,6 @@ export async function getSlotsForVetDay({
   const appointments = await prisma.appointment.findMany({
     where: {
       vetId,
-      status: { not: 'CANCELLED' },
       date: { gte: dayStart, lt: dayEnd }
     },
     select: { date: true, endTime: true }
@@ -104,7 +103,7 @@ export async function getSlotsForVetDay({
 
   // 4) filter out any candidate that overlaps an existing appt
   const free = candidates.filter(start => {
-    const end = addMinutes(start, duration);
+    const end = addMinutes(start, slotMinutes);
     return !appointments.some(a =>
       a.date < end && a.endTime > start
     );
@@ -119,7 +118,7 @@ export async function getSlotsForVetDay({
 interface ClinicSlotsParams {
   clinicId: string;
   date: string;
-  duration: number;
+  slotMinutes: number;
   vetId?: string;
 }
 
@@ -128,7 +127,7 @@ interface ClinicSlotsParams {
  * Returns undefined if the clinic doesn’t exist.
  */
 export async function getClinicSlotsForDay({
-  clinicId, date, duration, vetId
+  clinicId, date, slotMinutes, vetId
 }: ClinicSlotsParams): Promise<Record<string, string[]> | undefined> {
   // 1) Verify clinic exists
   const clinic = await prisma.clinic.findUnique({ where: { id: clinicId }, select: { id: true } });
@@ -147,7 +146,7 @@ export async function getClinicSlotsForDay({
   // 3) For each vet, get their slots
   const result: Record<string, string[]> = {};
   await Promise.all(vets.map(async v => {
-    const slots = await getSlotsForVetDay({ vetId: v.id, date, duration });
+    const slots = await getSlotsForVetDay({ vetId: v.id, date, slotMinutes });
     // getSlotsForVetDay returning [] means “no availability”, 
     // undefined only if vetId invalid—but here vets came from DB
     result[v.id] = slots || [];

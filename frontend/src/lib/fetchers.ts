@@ -96,26 +96,24 @@ export async function createPetForOwner(params: {
 export async function getVetSlots(
   vetId: string,
   date: string,
-  duration = 30
 ): Promise<Slot[]> {
   const { data } = await api.get<SlotsResponse>(
     `/availability/vets/${vetId}/available-slots`,
-    { params: { date, duration } }
+    { params: { date } }
   );
 
-  // SlotsResponse: { vetId, date, duration, slots: string[] }
+  // SlotsResponse: { vetId, date, slots: string[] }
   return (data.slots ?? []).map((time) => ({ time }));
 }
 
 export async function getClinicSlots(
   clinicId: string,
   date: string,
-  duration = 30,
   vetId?: string
 ): Promise<Slot[]> {
   const { data } = await api.get<ClinicSlotsResponse>(
     `/availability/clinics/${clinicId}/available-slots`,
-    { params: { date, duration, ...(vetId ? { vetId } : {}) } }
+    { params: { date, ...(vetId ? { vetId } : {}) } }
   );
 
   const byVet = data.slotsByVet ?? {};
@@ -152,7 +150,6 @@ export async function getMyVetAppointments(): Promise<Appointment[]> {
 
 export async function createAppointment(payload: {
   dateUtcIso: string;
-  duration: number;
   reason: string;
   emergency: boolean;
   petId: string;
@@ -163,7 +160,6 @@ export async function createAppointment(payload: {
 
   const body = {
     date: payload.dateUtcIso,
-    duration: payload.duration,
     reason: payload.reason,
     emergency: payload.emergency,
     petId: payload.petId,
@@ -192,11 +188,9 @@ export async function updateAppointmentStatus(
 export async function rescheduleAppointment(
   id: string,
   dateUtcIso: string,
-  duration: number
 ): Promise<Appointment> {
   const { data } = await api.patch<Appointment>(`/appointments/${id}`, {
     date: dateUtcIso,
-    duration,
   });
   return data;
 }

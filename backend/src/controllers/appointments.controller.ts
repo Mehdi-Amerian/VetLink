@@ -1,15 +1,13 @@
 import { Request, Response } from 'express';
-import { AppointmentStatus } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../config/prismaClient';
 import { parseClientToUtc } from '../utils/time';
 
-// 1) Validate input: date (ISO string) + duration (minutes) + other required fields
+// 1) Validate input
 const appointmentSchema = z.object({
   date: z.string().refine(str => !isNaN(Date.parse(str)), {
     message: 'Invalid ISO date string'
   }),
-  duration: z.number().int().min(5).max(500),
   reason: z.string().min(1).max(500),
   emergency: z.boolean().optional().default(false),
   petId: z.string().uuid(),
@@ -24,8 +22,20 @@ export const createAppointment = async (req: Request, res: Response) => {
   try {
     const data = appointmentSchema.parse(req.body);
 
+    //Determine slot length (per clinic, default 30 mins)
+    const clinic = await prisma.clinic.findUnique({
+      where: {id: data.clinicId},
+      select: {id: true, slotMinutes: true},
+    });
+
+    if (!clinic) {
+      return res.status(404).json({ error: 'Not Found', message: 'Clinic not found.' });
+    }
+
+    const slotMinutes = clinic.slotMinutes ?? 30;
+
     const start = parseClientToUtc(data.date);
-    const end = new Date(start.getTime() + data.duration * 60_000);
+    const end = new Date(start.getTime() + slotMinutes * 60_000);
 
     //Owner can only book for their own pet
     const pet = await prisma.pet.findUnique({ where: { id: data.petId } });
@@ -47,11 +57,11 @@ export const createAppointment = async (req: Request, res: Response) => {
     const conflict = await prisma.appointment.findFirst({
       where: {
         vetId: data.vetId,
-        status: { not: AppointmentStatus.CANCELLED },
+        cancelledAt: null,
         date: { lt: end },      // existing starts before new end
         endTime: { gt: start }, // existing ends after new start
       },
-      select: { id: true, date: true, endTime: true, status: true },
+      select: { id: true, date: true, endTime: true },
     });
 
     if (conflict) {
@@ -67,14 +77,13 @@ export const createAppointment = async (req: Request, res: Response) => {
       data: {
         date: start,
         endTime: end,
-        duration: data.duration,
         reason: data.reason,
         emergency: !!data.emergency,
         petId: data.petId,
         clinicId: data.clinicId,
         vetId: data.vetId,
         ownerId: user.userId,
-        status: AppointmentStatus.PENDING,
+        cancelledAt: null,
       },
       include: {
         pet: { select: { id: true, name: true, species: true } },
@@ -134,128 +143,81 @@ export const getAppointmentsForVet = async (req: Request, res: Response) => {
   res.json({ appointments });
 };
 
-export const updateAppointmentStatus = async (req: Request, res: Response) => {
+//soft-cancel appointment
+export const cancelAppointment = async (req: Request, res: Response) => {
   const { userId, role, vetId: tokenVetId } = (req as any).user;
   const appointmentId = req.params.id;
-  const { status } = req.body as { status: AppointmentStatus };
 
-  //Validate incoming status
-  if (![ 'CONFIRMED', 'CANCELLED', 'COMPLETED' ].includes(status)) {
-    return res.status(400).json({ message: 'Invalid status' });
-  }
-
-  // Fetch appointment with ownerId, vetId, date, endTime
   const appt = await prisma.appointment.findUnique({
     where: { id: appointmentId },
-    select: {
-      id: true,
-      status: true,
-      petId: true,
-      ownerId: true,
-      vetId: true,
-      date: true,
-      endTime: true
-    }
+    select: { id: true, ownerId: true, vetId: true, cancelledAt: true },
   });
-  if (!appt) {
-    return res.status(404).json({ message: 'Appointment not found' });
-  }
+  if (!appt) return res.status(404).json({ message: 'Appointment not found' });
+  if (appt.cancelledAt) return res.status(200).json({ message: 'Already cancelled' });
 
-// Final state lockout
-const finalStates: AppointmentStatus[] = [
-  AppointmentStatus.CANCELLED,
-  AppointmentStatus.COMPLETED
-];
-
-if (finalStates.includes(appt.status)) {
-  return res.status(400).json({
-    message: `Cannot change a ${appt.status.toLowerCase()} appointment`
-  });
-}
-
-  //Transition rules
-  //PENDING → COMPLETED disallowed
-  if (appt.status === AppointmentStatus.PENDING && status === AppointmentStatus.COMPLETED) {
-    return res.status(400).json({
-      message: 'Pending appointments must be confirmed before completion.'
-    });
-  }
-
-  //Cannot complete before it ends
-  if (status === AppointmentStatus.COMPLETED) {
-    const now = new Date();
-    if (now < appt.endTime) {
-      return res.status(400).json({
-        message: 'Cannot complete before appointment end time.'
-      });
-    }
-  }
-
-  //Permission checks
   const isOwner = role === 'OWNER' && appt.ownerId === userId;
-  const isVet   = role === 'VET'   && appt.vetId === tokenVetId;
-  const isAdmin = role === 'CLINIC_ADMIN'; // Admins can update any appointment
+  const isVet = role === 'VET' && appt.vetId === tokenVetId;
+  const isAdmin = role === 'CLINIC_ADMIN' || role === 'SUPER_ADMIN';
 
-  let allowed = false;
-  switch (status) {
-    case AppointmentStatus.CONFIRMED:
-      allowed = isVet || isAdmin;
-      break;
-    case AppointmentStatus.CANCELLED:
-      //allow owner or any clinic‐level admin/vet
-      allowed = isOwner || isVet || isAdmin;
-      break;
-    case AppointmentStatus.COMPLETED:
-      allowed = isVet || isAdmin;
-      break;
-  }
-  if (!allowed) {
-    return res.status(403).json({ message: 'Not authorized to update status' });
+  if (!isOwner && !isVet && !isAdmin) {
+    return res.status(403).json({ message: 'Not authorized to cancel' });
   }
 
-  // Perform update
   const updated = await prisma.appointment.update({
     where: { id: appointmentId },
-    data: { status }
+    data: { cancelledAt: new Date() },
   });
 
-  return res.json({ message: 'Status updated', appointment: updated });
+  return res.json({ message: 'Cancelled', appointment: updated });
 };
 
+//reschedule appointment
 export const updateAppointmentTime = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { date, duration } = req.body; // same validation as above
 
-  const newStart = parseClientToUtc(date);
-  const newEnd   = new Date(newStart.getTime() + duration * 60_000);
+  const bodySchema = z.object({
+    date: z.string().refine((str) => !isNaN(Date.parse(str)), { message: 'Invalid ISO date string' }),
+  });
+  const { date } = bodySchema.parse(req.body);
 
-  //Fetch existing appointment + verify permissions
-  const appt = await prisma.appointment.findUnique({ where: { id } });
+  const appt = await prisma.appointment.findUnique({
+    where: { id },
+    select: { id: true, ownerId: true, clinicId: true, vetId: true, cancelledAt: true },
+  });
   if (!appt) return res.status(404).json({ message: 'Not found' });
+  if (appt.cancelledAt) return res.status(400).json({ message: 'Cannot reschedule a cancelled appointment' });
+
   if (appt.ownerId !== (req as any).user.userId) {
     return res.status(403).json({ message: 'Forbidden' });
   }
 
-  //Check for conflicts excluding this appointment itself
+  const clinic = await prisma.clinic.findUnique({
+    where: { id: appt.clinicId },
+    select: { slotMinutes: true },
+  });
+  const slotMinutes = clinic?.slotMinutes ?? 30;
+
+  const newStart = parseClientToUtc(date);
+  const newEnd = new Date(newStart.getTime() + slotMinutes * 60_000);
+
   const overlap = await prisma.appointment.findFirst({
     where: {
       vetId: appt.vetId,
-      id:    { not: id },
-      status: { in: ['PENDING','CONFIRMED'] },
-      AND: [
-        { date:    { lt: newEnd } },
-        { endTime: { gt: newStart } }
-      ]
-    }
+      id: { not: id },
+      cancelledAt: null,
+      AND: [{ date: { lt: newEnd } }, { endTime: { gt: newStart } }],
+    },
+    select: { id: true },
   });
+
   if (overlap) {
     return res.status(409).json({ message: 'Overlaps an existing booking' });
   }
 
-  //Update both date & endTime & duration
   const updated = await prisma.appointment.update({
     where: { id },
-    data: { date: newStart, endTime: newEnd, duration }
+    data: { date: newStart, endTime: newEnd },
   });
+
   return res.json({ appointment: updated });
 };

@@ -68,17 +68,17 @@ export const getAvailableSlots = async (req: Request, res: Response) => {
     const { vetId } = req.params;
     const querySchema = z.object({
       date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format, expected YYYY-MM-DD'),
-      duration: z.preprocess(val => val ? Number(val) : undefined, z.number().int().default(30))
-        .refine(d => [15, 30, 45, 60].includes(d), 'duration must be one of 15, 30, 45, 60'),
     });
-    const { date, duration } = querySchema.parse(req.query);
+    const { date } = querySchema.parse(req.query);
 
-    const slots = await getSlotsForVetDay({ vetId, date, duration });
+    const slotMinutes = 30;
+
+    const slots = await getSlotsForVetDay({ vetId, date, slotMinutes });
     if (slots === undefined) {
       return res.status(404).json({ message: `No vet found with id ${vetId}` });
     }
 
-    return res.json({ date, vetId, slotDuration: duration, slots });
+    return res.json({ date, vetId, slotDuration: slotMinutes, slots });
   } catch (err: any) {
     if (err instanceof z.ZodError) {
       return res.status(400).json({ message: err.errors });
@@ -90,22 +90,22 @@ export const getAvailableSlots = async (req: Request, res: Response) => {
 
 const clinicSlotsQuery = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date, expected YYYY-MM-DD'),
-  duration: z.preprocess(v => v ? Number(v) : undefined, z.number().int().default(30))
-    .refine(d => [15,30,45,60].includes(d), 'duration must be 15/30/45/60'),
   vetId: z.string().uuid().optional(),
 });
 
 export async function getClinicAvailableSlots(req: Request, res: Response) {
   try {
     const { clinicId } = req.params;
-    const { date, duration, vetId } = clinicSlotsQuery.parse(req.query);
+    const { date, vetId } = clinicSlotsQuery.parse(req.query);
 
-    const slotsByVet = await getClinicSlotsForDay({ clinicId, date, duration, vetId });
+    const slotMinutes = 30;
+
+    const slotsByVet = await getClinicSlotsForDay({ clinicId, date, slotMinutes, vetId });
     if (slotsByVet === undefined) {
       return res.status(404).json({ message: `No clinic found with id ${clinicId}` });
     }
 
-    return res.json({ date, clinicId, slotDuration: duration, slotsByVet });
+    return res.json({ date, clinicId, slotDuration: slotMinutes, slotsByVet });
   } catch (err: any) {
     if (err instanceof z.ZodError) {
       return res.status(400).json({ message: err.errors });

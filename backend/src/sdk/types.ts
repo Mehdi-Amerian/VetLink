@@ -253,23 +253,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/appointments/{id}/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Update appointment status */
-        patch: operations["appointmentsUpdateStatus"];
-        trace?: never;
-    };
     "/api/notifications/preferences": {
         parameters: {
             query?: never;
@@ -418,8 +401,6 @@ export interface components {
         /** @enum {string} */
         Role: "OWNER" | "VET" | "CLINIC_ADMIN" | "SUPER_ADMIN";
         /** @enum {string} */
-        AppointmentStatus: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED";
-        /** @enum {string} */
         Weekday: "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
         Error: {
             message: string;
@@ -541,7 +522,6 @@ export interface components {
             date: string;
             /** Format: date-time */
             endTime: string;
-            duration: number;
             reason: string;
             emergency: boolean;
             /** Format: uuid */
@@ -552,7 +532,6 @@ export interface components {
             clinicId: string;
             /** Format: uuid */
             vetId: string;
-            status: components["schemas"]["AppointmentStatus"];
             readonly notificationLogs?: components["schemas"]["NotificationLog"][];
             /** Format: date-time */
             createdAt: string;
@@ -565,9 +544,6 @@ export interface components {
              * @description Start time in ISO (Europe/Helsinki)
              */
             date: string;
-            /** Format: date-time */
-            endTime: string;
-            duration: number;
             reason: string;
             /** @default false */
             emergency: boolean;
@@ -577,9 +553,6 @@ export interface components {
             clinicId: string;
             /** Format: uuid */
             vetId: string;
-        };
-        AppointmentStatusUpdateDTO: {
-            status: components["schemas"]["AppointmentStatus"];
         };
         NotificationPreference: {
             /** Format: uuid */
@@ -610,14 +583,14 @@ export interface components {
             /** Format: uuid */
             vetId: string;
             date: string;
-            duration: number;
+            slotMinutes: number;
             slots: string[];
         };
         ClinicSlotsResponse: {
             /** Format: uuid */
             clinicId: string;
             date: string;
-            duration: number;
+            slotMinutes: number;
             slotsByVet: {
                 [key: string]: string[];
             };
@@ -1324,8 +1297,7 @@ export interface operations {
             query: {
                 /** @description ISO date (YYYY-MM-DD) in Europe/Helsinki */
                 date: string;
-                /** @description Minutes (e.g., 30, 60) */
-                duration: number;
+                slotMinutes?: 15 | 30 | 45 | 60;
             };
             header?: never;
             path: {
@@ -1344,7 +1316,7 @@ export interface operations {
                     "application/json": components["schemas"]["SlotsResponse"];
                 };
             };
-            /** @description Bad Request (invalid date/duration) */
+            /** @description Bad Request (invalid date) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -1377,7 +1349,7 @@ export interface operations {
         parameters: {
             query: {
                 date: string;
-                duration: number;
+                slotMinutes?: 15 | 30 | 45 | 60;
                 vetId?: string;
             };
             header?: never;
@@ -1397,7 +1369,7 @@ export interface operations {
                     "application/json": components["schemas"]["ClinicSlotsResponse"];
                 };
             };
-            /** @description Bad Request (invalid date/duration) */
+            /** @description Bad Request (invalid date) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -1481,68 +1453,6 @@ export interface operations {
             /** @description Conflict. Either: - the requested time slot overlaps an existing appointment, or - the Idempotency-Key was reused with a different request body or endpoint.
              *      */
             409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    appointmentsUpdateStatus: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AppointmentStatusUpdateDTO"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Appointment"];
-                };
-            };
-            /** @description Invalid transition or bad request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Not allowed */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Appointment not found */
-            404: {
                 headers: {
                     [name: string]: unknown;
                 };

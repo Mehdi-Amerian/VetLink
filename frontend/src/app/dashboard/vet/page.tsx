@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import AuthGate from '@/components/auth/AuthGate';
 import type { Appointment } from '@/lib/types';
-import { getMyVetAppointments, updateAppointmentStatus } from '@/lib/fetchers';
+import { getMyVetAppointments } from '@/lib/fetchers';
 import { serverUtcToLocalLabel } from '@/lib/time';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,33 +36,17 @@ function VetView() {
     void load();
   }, [load]);
 
-  const updateStatus = useCallback(
-    async (id: string, status: 'CONFIRMED' | 'CANCELLED' | 'COMPLETED') => {
-      try {
-        await updateAppointmentStatus(id, status);
-        await load();
-      } catch (e: unknown) {
-        if (axios.isAxiosError(e)) {
-          alert(
-            (e.response?.data as { message?: string } | undefined)?.message ??
-              'Failed to update status'
-          );
-        } else {
-          alert('Failed to update status');
-        }
-      }
-    },
-    [load]
-  );
-
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-4">
-      <Link href="/dashboard/vet/profile">
-        <Button variant="outline" size="sm">
-          Edit profile & availability
-       </Button>
-      </Link>
-      <h1 className="text-xl font-semibold">Vet Appointments</h1>
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-xl font-semibold">Vet Appointments</h1>
+
+        <Link href="/dashboard/vet/profile">
+          <Button variant="outline" size="sm">
+            Edit profile & availability
+        </Button>
+       </Link>
+      </div>
 
       {loading && appointments.length === 0 && (
         <p className="text-sm text-gray-500">Loading appointments…</p>
@@ -80,38 +64,12 @@ function VetView() {
                 {serverUtcToLocalLabel(a.date)} → {serverUtcToLocalLabel(a.endTime)}
               </div>
               <div className="text-sm text-gray-500">
-                {a.reason} • {a.status}
-                {a.pet?.name ? ` • ${a.pet.name}` : null}
-                {a.ownerId ? ` • Owner: ${a.ownerId.slice(0, 8)}…` : null}
+                {a.reason}
+                {a.pet?.name ? ` • Pet: ${a.pet.name}` : null}
+                {a.clinic?.name ? ` • Clinic: ${a.clinic.name}` : null}
               </div>
             </div>
             <div className="flex gap-2">
-              {a.status === 'PENDING' && (
-                <Button
-                  size="sm"
-                  onClick={() => updateStatus(a.id, 'CONFIRMED')}
-                >
-                  Confirm
-                </Button>
-              )}
-              {a.status !== 'CANCELLED' && a.status !== 'COMPLETED' && (
-                <>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => updateStatus(a.id, 'COMPLETED')}
-                  >
-                    Complete
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => updateStatus(a.id, 'CANCELLED')}
-                  >
-                    Cancel
-                  </Button>
-                </>
-              )}
             </div>
           </CardContent>
         </Card>
@@ -122,7 +80,7 @@ function VetView() {
 
 export default function VetDashboard() {
   return (
-    <AuthGate roles={['VET', 'CLINIC_ADMIN']}>
+    <AuthGate roles={['VET']}>
       <VetView />
     </AuthGate>
   );

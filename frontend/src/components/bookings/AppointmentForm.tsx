@@ -31,7 +31,6 @@ export default function AppointmentForm() {
   const [petId, setPetId] = useState<string>("");
   const [date, setDate] = useState<string>(""); // YYYY-MM-DD
   const [time, setTime] = useState<string>(""); // HH:mm
-  const [duration, setDuration] = useState<number>(30);
   const [reason, setReason] = useState<string>("");
   const [emergency, setEmergency] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState(false);
@@ -42,9 +41,8 @@ export default function AppointmentForm() {
       petId &&
       date &&
       time &&
-      duration > 0 &&
       reason.length > 0,
-    [clinicId, vetId, petId, date, time, duration, reason]
+    [clinicId, vetId, petId, date, time, reason]
   );
 
   useEffect(() => {
@@ -71,14 +69,16 @@ export default function AppointmentForm() {
       const dateUtcIso = localDateTimeToUtcIso(date, time);
       await createAppointment({
         dateUtcIso,
-        duration,
         reason,
         emergency,
         petId,
         clinicId,
         vetId,
       });
-      alert("Appointment created!");
+      alert("Appointment booked!");
+      setTime("");
+      setReason("");
+      setEmergency(false);
     } catch (e: unknown) {
       if (axios.isAxiosError(e)) {
         const message =
@@ -156,16 +156,6 @@ export default function AppointmentForm() {
             onChange={(e) => setDate(e.target.value)}
           />
         </div>
-        <div>
-          <Label>Duration (min)</Label>
-          <Input
-            type="number"
-            min={15}
-            step={15}
-            value={duration}
-            onChange={(e) => setDuration(parseInt(e.target.value || "0", 10))}
-          />
-        </div>
       </div>
 
       {clinicId && date && (
@@ -175,7 +165,6 @@ export default function AppointmentForm() {
             clinicId={clinicId}
             vetId={vetId || undefined}
             date={date}
-            duration={duration}
             onPick={setTime}
           />
           {time && (

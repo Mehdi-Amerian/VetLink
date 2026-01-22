@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button';
 import { getVetSlots, getClinicSlots } from '@/lib/fetchers';
 
 
-type Props = { vetId?: string; clinicId?: string; date: string; duration?: number; onPick: (hhmm: string) => void };
-export default function SlotPicker({ vetId, clinicId, date, duration = 30, onPick }: Props) {
+type Props = { vetId?: string; clinicId?: string; date: string; onPick: (hhmm: string) => void };
+export default function SlotPicker({ vetId, clinicId, date, onPick }: Props) {
 const [slots, setSlots] = useState<string[]>([]);
 const [loading, setLoading] = useState(false);
 const load = useCallback(async () => {
@@ -13,13 +13,13 @@ if (!date || (!vetId && !clinicId)) return;
 setLoading(true);
 try {
 const data = vetId
-? await getVetSlots(vetId, date, duration)
-: await getClinicSlots(clinicId!, date, duration, vetId);
+? await getVetSlots(vetId, date)
+: await getClinicSlots(clinicId!, date, vetId);
 setSlots(data.map((s) => s.time));
 } finally {
 setLoading(false);
 }
-}, [vetId, clinicId, date, duration]);
+}, [vetId, clinicId, date]);
 useEffect(() => { void load(); }, [load]);
 if (!date) return null;
 return (
