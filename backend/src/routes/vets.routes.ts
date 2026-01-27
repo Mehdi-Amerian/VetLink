@@ -7,12 +7,14 @@ const router = Router();
 
 // Public routes
 router.get('/', getVets);
+
+// Vet profile update
+router.patch('/me', verifyToken, checkRole('VET'), updateMyVetProfile);
+
+// Get vet by ID
 router.get('/:id', getVetById);
 
 // Admin-only vet registration
 router.post('/', verifyToken, checkRole('CLINIC_ADMIN'), createVet);
-
-// Vet profile update
-router.patch('/me', verifyToken, checkRole('VET'), updateMyVetProfile);
 
 export default router;

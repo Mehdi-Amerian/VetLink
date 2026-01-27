@@ -14,7 +14,7 @@ const router = Router();
 router.post('/', verifyToken, checkRole('OWNER'), idempotencyMiddleware, createAppointment);
 router.get('/', verifyToken, checkRole('OWNER'), getMyAppointments);
 router.get('/vet', verifyToken, checkRole('VET'), getAppointmentsForVet);
-router.patch('/:id', verifyToken, updateAppointmentTime);
 router.patch('/:id/cancel', verifyToken, cancelAppointment);
+router.patch('/:id', verifyToken, updateAppointmentTime);
 
 export default router;
