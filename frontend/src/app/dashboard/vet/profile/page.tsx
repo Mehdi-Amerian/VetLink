@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 
@@ -9,30 +9,13 @@ import {
   getVetById,
   updateMyVetProfile,
   getAvailabilityForVet,
-  addAvailabilityBlock,
 } from '@/lib/fetchers';
-import type { Vet, Availability, Weekday } from '@/lib/types';
+import type { Vet, Availability} from '@/lib/types';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-} from '@/components/ui/select';
-
-const WEEKDAYS: Weekday[] = [
-  'MONDAY',
-  'TUESDAY',
-  'WEDNESDAY',
-  'THURSDAY',
-  'FRIDAY',
-  'SATURDAY',
-  'SUNDAY',
-];
+import VetAvailabilityCalendar from "@/components/ui/vetAvailabilityCalendar";
 
 export default function VetProfilePage() {
   const { user, ready } = useAuth();
@@ -45,14 +28,15 @@ export default function VetProfilePage() {
   const [specialization, setSpecialization] = useState('');
 
   const [savingProfile, setSavingProfile] = useState(false);
-  const [addingAvail, setAddingAvail] = useState(false);
-
-  const [newDay, setNewDay] = useState<Weekday>('MONDAY');
-  const [newStart, setNewStart] = useState('');
-  const [newEnd, setNewEnd] = useState('');
 
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const reloadAvailability = useCallback(async () => {
+    if (!user?.vetId) return;
+    const availData = await getAvailabilityForVet(user.vetId);
+    setAvailabilities(availData);
+  }, [user?.vetId]);
 
   // redirect guards
   useEffect(() => {
@@ -92,12 +76,6 @@ export default function VetProfilePage() {
     return true;
   }, [name]);
 
-  const canAddAvailability = useMemo(() => {
-    if (!newStart || !newEnd) return false;
-    // simple validation: start < end
-    return newStart < newEnd;
-  }, [newStart, newEnd]);
-
   async function onSaveProfile() {
     if (!canSaveProfile) return;
     setSavingProfile(true);
@@ -123,40 +101,6 @@ export default function VetProfilePage() {
       }
     } finally {
       setSavingProfile(false);
-    }
-  }
-
-  async function onAddAvailability() {
-    if (!canAddAvailability) return;
-    if (!user?.vetId) return;
-
-    setAddingAvail(true);
-    setMessage(null);
-    setError(null);
-
-    try {
-      const created = await addAvailabilityBlock({
-        day: newDay,
-        startTime: newStart,
-        endTime: newEnd,
-      });
-
-      setAvailabilities((prev) => [...prev, created]);
-      setMessage('Availability added');
-      setNewStart('');
-      setNewEnd('');
-    } catch (e: unknown) {
-      console.error(e);
-      if (axios.isAxiosError(e)) {
-        const msg =
-          (e.response?.data as { message?: string } | undefined)?.message ??
-          'Failed to add availability';
-        setError(msg);
-      } else {
-        setError('Failed to add availability');
-      }
-    } finally {
-      setAddingAvail(false);
     }
   }
 
@@ -204,96 +148,17 @@ export default function VetProfilePage() {
         </Button>
       </section>
 
-      {/* ---- Availability ---- */}
+       {/* ---- Availability (FullCalendar) ---- */}
       <section className="space-y-4 border rounded-lg p-4">
         <h2 className="text-lg font-medium">Availability</h2>
         <p className="text-sm text-muted-foreground">
-          Define which days and times you are available for appointments.
+          Drag to create availability. Drag/resize to edit. Click a block to delete.
         </p>
 
-        {/* Add new availability block */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-          <div>
-            <Label>Day</Label>
-            <Select
-              value={newDay}
-              onValueChange={(value) => setNewDay(value as Weekday)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {WEEKDAYS.map((d) => (
-                  <SelectItem key={d} value={d}>
-                    {d.charAt(0) + d.slice(1).toLowerCase()}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="start">Start time</Label>
-            <Input
-              id="start"
-              type="time"
-              value={newStart}
-              onChange={(e) => setNewStart(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="end">End time</Label>
-            <Input
-              id="end"
-              type="time"
-              value={newEnd}
-              onChange={(e) => setNewEnd(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <Button
-              className="w-full"
-              onClick={onAddAvailability}
-              disabled={!canAddAvailability || addingAvail}
-            >
-              {addingAvail ? 'Adding…' : 'Add block'}
-            </Button>
-          </div>
-        </div>
-
-        {/* Existing availability list */}
-        <div className="mt-4 space-y-2">
-          {availabilities.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              No availability defined yet.
-            </p>
-          )}
-
-          {availabilities.length > 0 && (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left border-b">
-                  <th className="py-1 pr-2">Day</th>
-                  <th className="py-1 pr-2">Start</th>
-                  <th className="py-1 pr-2">End</th>
-                </tr>
-              </thead>
-              <tbody>
-                {availabilities.map((a) => (
-                  <tr key={a.id} className="border-b last:border-0">
-                    <td className="py-1 pr-2">
-                      {a.day.charAt(0) + a.day.slice(1).toLowerCase()}
-                    </td>
-                    <td className="py-1 pr-2">{a.startTime}</td>
-                    <td className="py-1 pr-2">{a.endTime}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        <VetAvailabilityCalendar
+          availability={availabilities}
+          onChanged={reloadAvailability}
+        />
       </section>
     </div>
   );
