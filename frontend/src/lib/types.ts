@@ -7,7 +7,6 @@ export type Clinic = components['schemas']['Clinic'];
 export type Vet = components['schemas']['Vet'];
 export type Pet = components['schemas']['Pet'];
 export type Appointment = components['schemas']['Appointment'];
-export type AppointmentStatus = components['schemas']['AppointmentStatus'];
 
 export type LoginResponse = components['schemas']['AuthResponse'];
 
