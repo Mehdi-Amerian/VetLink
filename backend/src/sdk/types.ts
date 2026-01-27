@@ -196,6 +196,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/{Id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete an availability block (VET only) */
+        delete: operations["availabilityDelete"];
+        options?: never;
+        head?: never;
+        /** Update an availability block (VET only) */
+        patch: operations["availabilityUpdate"];
+        trace?: never;
+    };
     "/api/availability/vets/{vetId}/available-slots": {
         parameters: {
             query?: never;
@@ -484,6 +502,11 @@ export interface components {
             day: components["schemas"]["Weekday"];
             startTime: string;
             endTime: string;
+        };
+        AvailabilityUpdateDTO: {
+            day?: components["schemas"]["Weekday"];
+            startTime?: string;
+            endTime?: string;
         };
         Pet: {
             /** Format: uuid */
@@ -1288,6 +1311,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    availabilityDelete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                Id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    availabilityUpdate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                Id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AvailabilityUpdateDTO"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        availability: components["schemas"]["Availability"];
+                    };
                 };
             };
         };

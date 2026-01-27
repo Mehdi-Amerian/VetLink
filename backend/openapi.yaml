@@ -511,6 +511,47 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /api/{Id}:
+    patch:
+      tags: [Availability]
+      summary: Update an availability block (VET only)
+      operationId: availabilityUpdate
+      parameters:
+        - in: path
+          name: Id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvailabilityUpdateDTO"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  availability:
+                    $ref: "#/components/schemas/Availability"
+                required: [availability]
+
+    delete:
+      tags: [Availability]
+      summary: Delete an availability block (VET only)
+      operationId: availabilityDelete
+      parameters:
+        - in: path
+          name: Id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: No Content
+
   /api/availability/vets/{vetId}/available-slots:
     get:
       tags: [Availability]
@@ -1029,6 +1070,14 @@ components:
         day: { $ref: "#/components/schemas/Weekday" }
         startTime: { type: string }
         endTime: { type: string }
+
+    AvailabilityUpdateDTO:
+      type: object
+      properties:
+        day: { $ref: "#/components/schemas/Weekday" }
+        startTime: { type: string }
+        endTime: { type: string }
+
 
     Pet:
       type: object
