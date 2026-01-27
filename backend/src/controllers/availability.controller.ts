@@ -45,6 +45,63 @@ export const addAvailability = async (req: Request, res: Response) => {
   }
 };
 
+export const updateAvailability = async (req: Request, res: Response) => {
+  const { userId } = (req as any).user;
+  const { id } = req.params;
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { vetId: true },
+    });
+    if (!user?.vetId) {
+      return res.status(400).json({ message: 'No vet profile linked to this account' });
+    }
+    const data = availabilitySchema.parse(req.body);
+
+    const current = await prisma.availability.findUnique({
+      where: { id },
+      select: { id: true, vetId: true },
+    });
+    if (!current) return res.status(404).json({ message: 'Availability block not found' });
+    if (current.vetId !== user.vetId) return res.status(403).json({ message: 'Not allowed' });
+    const updated = await prisma.availability.update({
+      where: { id },
+      data: { ...data },
+    });
+    res.json({ availability: updated });
+  } catch (err: any) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ message: err.errors });
+    }
+    res.status(500).json({ message: 'Failed to update availability' });
+  }
+};
+
+export const deleteAvailability = async (req: Request, res: Response) => {
+  const { userId } = (req as any).user;
+  const { id } = req.params;
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { vetId: true },
+  });
+
+  if (!user?.vetId) {
+    return res.status(400).json({ message: 'No vet profile linked to this account' });
+  }
+
+  const current = await prisma.availability.findUnique({
+    where: { id },
+    select: { id: true, vetId: true },
+  });
+
+  if (!current) return res.status(404).json({ message: 'Availability block not found' });
+  if (current.vetId !== user.vetId) return res.status(403).json({ message: 'Not allowed' });
+
+  await prisma.availability.delete({ where: { id } });
+  return res.status(204).send();
+};
+
 /**
  * Anyone can view raw availability entries for a vet
  */
@@ -58,6 +115,7 @@ export const getAvailabilityByVet = async (req: Request, res: Response) => {
 
   res.json({ availability: slots });
 };
+
 
 /**
  * GET /api/availability/vets/:vetId/available-slots

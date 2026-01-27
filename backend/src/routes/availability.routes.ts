@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { addAvailability, getAvailabilityByVet, getAvailableSlots, getClinicAvailableSlots} from '../controllers/availability.controller';
+import { addAvailability, getAvailabilityByVet, getAvailableSlots, getClinicAvailableSlots, updateAvailability, deleteAvailability } from '../controllers/availability.controller';
 import { verifyToken } from '../middlewares/verifyToken';
 import { checkRole } from '../middlewares/checkRole';
 
@@ -7,6 +7,11 @@ const router = Router();
 
 // VET creates availability
 router.post('/', verifyToken, checkRole('VET'), addAvailability);
+// VET updates availability
+router.patch('/:id', verifyToken, checkRole('VET'), updateAvailability);
+// VET deletes availability
+router.delete('/:id', verifyToken, checkRole('VET'), deleteAvailability);
+
 
 // Anyone can view vet's schedule
 router.get('/:vetId', getAvailabilityByVet);
