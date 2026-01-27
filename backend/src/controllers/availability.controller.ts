@@ -47,7 +47,7 @@ export const addAvailability = async (req: Request, res: Response) => {
 
 export const updateAvailability = async (req: Request, res: Response) => {
   const { userId } = (req as any).user;
-  const { id } = req.params;
+  const { availabilityId } = req.params;
   try {
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -59,13 +59,13 @@ export const updateAvailability = async (req: Request, res: Response) => {
     const data = availabilitySchema.parse(req.body);
 
     const current = await prisma.availability.findUnique({
-      where: { id },
+      where: { id: availabilityId },
       select: { id: true, vetId: true },
     });
     if (!current) return res.status(404).json({ message: 'Availability block not found' });
     if (current.vetId !== user.vetId) return res.status(403).json({ message: 'Not allowed' });
     const updated = await prisma.availability.update({
-      where: { id },
+      where: { id: availabilityId },
       data: { ...data },
     });
     res.json({ availability: updated });
@@ -79,7 +79,7 @@ export const updateAvailability = async (req: Request, res: Response) => {
 
 export const deleteAvailability = async (req: Request, res: Response) => {
   const { userId } = (req as any).user;
-  const { id } = req.params;
+  const { availabilityId } = req.params;
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -91,14 +91,14 @@ export const deleteAvailability = async (req: Request, res: Response) => {
   }
 
   const current = await prisma.availability.findUnique({
-    where: { id },
+    where: { id: availabilityId },
     select: { id: true, vetId: true },
   });
 
   if (!current) return res.status(404).json({ message: 'Availability block not found' });
   if (current.vetId !== user.vetId) return res.status(403).json({ message: 'Not allowed' });
 
-  await prisma.availability.delete({ where: { id } });
+  await prisma.availability.delete({ where: { id: availabilityId } });
   return res.status(204).send();
 };
 

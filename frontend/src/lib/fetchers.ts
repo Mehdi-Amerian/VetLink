@@ -330,13 +330,13 @@ export async function addAvailabilityBlock(payload: {
 }
 
 export async function updateAvailabilityBlock(
-  id: string,
+  availabilityId: string,
   payload: Partial<{ day: Weekday; startTime: string; endTime: string }>
 ): Promise<Availability> {
-  const { data } = await api.patch(`/availability/${id}`, payload);
+  const { data } = await api.patch(`/availability/${availabilityId}`, payload);
   return (data.availability ?? data) as Availability;
 }
 
-export async function deleteAvailabilityBlock(id: string): Promise<void> {
-  await api.delete(`/availability/${id}`);
+export async function deleteAvailabilityBlock(availabilityId: string): Promise<void> {
+  await api.delete(`/availability/${availabilityId}`);
 }

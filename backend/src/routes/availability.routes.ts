@@ -16,8 +16,8 @@ router.get('/:vetId', getAvailabilityByVet);
 // VET creates availability
 router.post('/', verifyToken, checkRole('VET'), addAvailability);
 // VET updates availability
-router.patch('/:id', verifyToken, checkRole('VET'), updateAvailability);
+router.patch('/:availabilityId', verifyToken, checkRole('VET'), updateAvailability);
 // VET deletes availability
-router.delete('/:id', verifyToken, checkRole('VET'), deleteAvailability);
+router.delete('/:availabilityId', verifyToken, checkRole('VET'), deleteAvailability);
 
 export default router;
