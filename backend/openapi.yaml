@@ -121,6 +121,39 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /api/users/me:
+    patch:
+      tags: [Auth]
+      summary: Update my user profile
+      operationId: usersUpdateMe
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdateDTO"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /api/pets:
     get:
@@ -1078,7 +1111,6 @@ components:
         startTime: { type: string }
         endTime: { type: string }
 
-
     Pet:
       type: object
       properties:
@@ -1143,6 +1175,11 @@ components:
           createdAt,
           updatedAt,
         ]
+
+    UserUpdateDTO:
+      type: object
+      properties:
+        fullName: { type: string }
 
     AppointmentCreateDTO:
       type: object

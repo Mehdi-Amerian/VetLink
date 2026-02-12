@@ -12,6 +12,7 @@ import type {
   ClinicSlotsResponse,
   Availability,
   Weekday,
+  User,
 } from "./types";
 
 function unwrapArray<T>(data: unknown, field?: string): T[] {
@@ -67,8 +68,16 @@ export async function getVetById(id: string): Promise<Vet> {
   return (data.vet ?? data) as Vet;
 }
 
+// ----- user profile -----
 
-// ----- create pets -----
+export async function updateMyOwnerProfile(payload: {
+  fullName?: string;
+}): Promise<User> {
+  const { data } = await api.patch("/users/me", payload);
+  return (data.user ?? data) as User;
+}
+
+// ---- pet management -----
 
 export async function createPetForOwner(params: {
   name: string;
@@ -81,15 +90,28 @@ export async function createPetForOwner(params: {
   // Convert YYYY-MM-DD to full ISO datetime at midnight
   const birthDateIso = new Date(`${birthDateYYYYMMDD}T00:00:00`).toISOString();
 
-  const { data } = await api.post<Pet>("/pets", {
+  const { data } = await api.post<{pet: Pet}>("/pets", {
     name,
     species,
     breed: breed ?? null,
     birthDate: birthDateIso,
   });
 
-  return data;
+  return data.pet;
 }
+
+export async function updatePet(
+  id: string,
+  payload: Partial<Pick<Pet, "name" | "species" | "breed" | "birthDate">>
+): Promise<Pet> {
+  const { data } = await api.patch(`/pets/${id}`, payload);
+  return (data.pet ?? data) as Pet;
+}
+
+export async function deletePet(id: string): Promise<void> {
+  await api.delete(`/pets/${id}`);
+}
+
 
 // ----- slots -----
 

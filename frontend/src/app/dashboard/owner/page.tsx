@@ -20,7 +20,13 @@ return (
 
 function OwnerView() {
 const [list, setList] = useState<Appointment[]>([]);
-const load = async () => setList(await getMyAppointments());
+const load = async () => {
+     try {
+         setList(await getMyAppointments());
+        } catch {
+
+        }
+};
 useEffect(() => { void load(); }, []);
 
 return (
@@ -28,6 +34,11 @@ return (
 <div className="flex justify-between items-center">
 <h1 className="text-xl font-semibold">My Appointments</h1>
 <Link href="/appointments/book"><Button>Book new</Button></Link>
+<Link href="/dashboard/owner/profile">
+    <Button variant="outline" size="sm">
+        Profile
+    </Button>
+</Link>
 </div>
 {list.map((a) => (
 <Card key={a.id}><CardContent className="p-4 flex items-center justify-between">
