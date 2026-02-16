@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PrismaClient, Role} from '@prisma/client';
+import {Role} from '@prisma/client';
 import {Parser} from 'json2csv';
 import { prisma } from '../config/prismaClient';
 
@@ -28,11 +28,10 @@ const dateFilter = dateFrom ? { gte: dateFrom } : undefined;
         where: {
           ownerId: userId,
           date: dateFilter,
-          status: { in: ['PENDING', 'CONFIRMED'] }
         }
       });
       const cancelled = await prisma.appointment.count({
-        where: { ownerId: userId, status: 'CANCELLED', date: dateFilter }
+        where: { ownerId: userId, date: dateFilter }
       });
 
       return res.json({
@@ -61,16 +60,15 @@ const dateFilter = dateFrom ? { gte: dateFrom } : undefined;
           date: {
             gte: new Date(new Date().setHours(0, 0, 0, 0)),
             lte: new Date(new Date().setHours(23, 59, 59, 999))},
-            status: { in: ['PENDING', 'CONFIRMED'] }
         }
       });
 
       const pending = await prisma.appointment.count({
-        where: { vetId, status: 'PENDING', date: dateFilter }
+        where: { vetId, date: dateFilter }
       });
 
       const confirmed = await prisma.appointment.count({
-        where: { vetId, status: 'CONFIRMED', date: dateFilter }
+        where: { vetId, date: dateFilter }
       });
 
       const appointmentsGrouped = await prisma.appointment.groupBy({
@@ -171,7 +169,6 @@ export const exportAppointmentsCsv = async (req: Request, res: Response) => {
     AppointmentID: a.id,
     Date: a.date.toISOString(),
     Reason: a.reason,
-    Status: a.status,
     Emergency: a.emergency ? 'Yes' : 'No',
     Pet: a.pet.name,
     Clinic: a.clinic.name,
