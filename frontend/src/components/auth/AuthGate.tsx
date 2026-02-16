@@ -14,8 +14,11 @@ export default function AuthGate({
   const { user, ready } = useAuth();
   const router = useRouter();
 
+  const isUnauthorized = ready && (!user || (roles && user && !roles.includes(user.role)));
+
   useEffect(() => {
     if (!ready) return;
+
     if (!user) {
       router.replace('/login');
       return;
@@ -25,6 +28,9 @@ export default function AuthGate({
     }
   }, [ready, user, roles, router]);
 
-  if (!ready) return null;
+  if (!ready || isUnauthorized){
+    return null;
+  }
+  
   return <>{children}</>;
 }
