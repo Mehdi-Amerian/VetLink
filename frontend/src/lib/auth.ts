@@ -41,6 +41,17 @@ export function saveSession(token: string, user: User) {
   if (typeof window === 'undefined') return;
   localStorage.setItem('token', token);
   localStorage.setItem('user', JSON.stringify(user));
+  localStorage.removeItem('sessionExpired'); // Clear any previous session expiry flag
+}
+
+function isJwtExpired(token: string): boolean {
+  try{
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const exp = typeof payload?.exp === 'number' ? payload.exp : 0;
+    return Date.now() >= exp * 1000;
+  } catch {
+    return true; // Treat malformed tokens as expired
+  }
 }
 
 export function loadSession(): { token: string | null; user: User | null } {
@@ -48,8 +59,18 @@ export function loadSession(): { token: string | null; user: User | null } {
   try {
     const token = localStorage.getItem('token');
     const raw = localStorage.getItem('user');
-    return { token, user: raw ? (JSON.parse(raw) as User) : null };
+    const user = raw ? (JSON.parse(raw) as User) : null;
+
+    if (!token || !user) return { token: null, user: null };
+  
+  if (isJwtExpired(token)) {
+    localStorage.setItem('sessionExpired', '1');
+    clearSession();
+    return { token: null, user: null };
+  }
+    return { token, user };
   } catch {
+    clearSession();
     return { token: null, user: null };
   }
 }
