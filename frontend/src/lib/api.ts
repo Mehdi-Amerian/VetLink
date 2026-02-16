@@ -8,7 +8,7 @@ import type { AxiosHeaderValue, RawAxiosRequestHeaders } from 'axios';
 // What headers might look like coming from Axios
 type HeadersLike = AxiosHeaders | RawAxiosRequestHeaders | undefined;
 
-/** Normalize to an AxiosHeaders instance without using `any`. */
+// Ensure we have an AxiosHeaders instance to work with, regardless of input type
 function ensureAxiosHeaders(h: HeadersLike): AxiosHeaders {
   if (h instanceof AxiosHeaders) return h;
 
@@ -30,23 +30,49 @@ export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
 });
 
+// Handle session expiry globally 
+let hasHandledSessionExpiry = false;
+
 /** Attach JWT to every request (browser only). */
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('token');
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("token");
     if (token) {
       const headers = ensureAxiosHeaders(config.headers as HeadersLike);
-      headers.set('Authorization', `Bearer ${token}`);
+      headers.set("Authorization", `Bearer ${token}`);
       config.headers = headers;
     }
   }
   return config;
 });
 
-/** Pass errors through; handle per call. */
+/** Handle session expiry globally; otherwise pass errors through. */
 api.interceptors.response.use(
-  (res) => res,
-  (err) => Promise.reject(err)
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    const data = error?.response?.data;
+
+    const code = typeof data?.code === "string" ? data.code : null;
+
+    const hasToken = typeof window !== "undefined" && !!localStorage.getItem("token");
+    const isAuthFail = hasToken && status === 401;
+    const isExpired = isAuthFail && code === "TOKEN_EXPIRED";
+
+    if (isAuthFail && !hasHandledSessionExpiry && typeof window !== "undefined") {
+      hasHandledSessionExpiry = true;
+
+      if (isExpired) localStorage.setItem("sessionExpired", "1");
+
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+
+      const reason = isExpired ? "session-expired" : "auth";
+      window.location.replace(`/login?reason=${reason}`);
+    }
+
+    return Promise.reject(error);
+  }
 );
 
 /** Add Idempotency-Key in a type-safe way. */
