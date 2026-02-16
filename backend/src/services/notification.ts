@@ -33,7 +33,6 @@ export async function buildReminderEmail(userId: string, toEmail: string, htmlBo
 export async function sendRemindersForWindow(start: Date, end: Date) {
   const appts = await prisma.appointment.findMany({
     where: {
-      status: { in: ['PENDING', 'CONFIRMED'] },
       date:   { gte: start, lt: end },
     },
     include: { owner: true, pet: true, clinic: true },
