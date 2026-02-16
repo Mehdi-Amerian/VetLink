@@ -20,7 +20,7 @@ export const verifyToken = async (
   const header = req.headers.authorization;
 
   if (!header || !header.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'Missing or invalid token' });
+    return res.status(401).json({ message: 'Missing token', code: 'TOKEN_MISSING' });
   }
 
   const token = header.split(' ')[1];
@@ -38,19 +38,30 @@ export const verifyToken = async (
     });
 
     if (!user) {
-      return res.status(401).json({ message: 'User no longer exists' });
+      return res.status(401).json({ message: 'User no longer exists', code: 'USER_NOT_FOUND' });
     }
 
     // Attach session-like object to req
     req.user = {
       userId: decoded.userId,
-      role: decoded.role,
+      role: user.role,
       vetId: user.vetId,
       clinicId: user.clinicId
     };
 
-    next();
-  } catch (err) {
-    return res.status(403).json({ message: 'Invalid or expired token' });
+      return next();
+  } catch (err: unknown) {
+    // jwt.verify throws JsonWebTokenError / TokenExpiredError
+    if (err instanceof jwt.TokenExpiredError) {
+      return res.status(401).json({
+        message: "Token expired",
+        code: "TOKEN_EXPIRED",
+      });
+    }
+
+    return res.status(401).json({
+      message: "Invalid token",
+      code: "TOKEN_INVALID",
+    });
   }
 };
