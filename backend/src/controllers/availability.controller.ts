@@ -129,14 +129,23 @@ export const getAvailableSlots = async (req: Request, res: Response) => {
     });
     const { date } = querySchema.parse(req.query);
 
-    const slotMinutes = 30;
+    // Slot length is configured per clinic.
+    const vet = await prisma.vet.findUnique({
+      where: { id: vetId },
+      select: { clinic: { select: { slotMinutes: true } } },
+    });
+    if (!vet) {
+      return res.status(404).json({ message: `No vet found with id ${vetId}` });
+    }
+
+    const slotMinutes = vet.clinic.slotMinutes;
 
     const slots = await getSlotsForVetDay({ vetId, date, slotMinutes });
     if (slots === undefined) {
       return res.status(404).json({ message: `No vet found with id ${vetId}` });
     }
 
-    return res.json({ date, vetId, slotDuration: slotMinutes, slots });
+    return res.json({ date, vetId, slotMinutes, slots });
   } catch (err: any) {
     if (err instanceof z.ZodError) {
       return res.status(400).json({ message: err.errors });
@@ -156,14 +165,22 @@ export async function getClinicAvailableSlots(req: Request, res: Response) {
     const { clinicId } = req.params;
     const { date, vetId } = clinicSlotsQuery.parse(req.query);
 
-    const slotMinutes = 30;
+    const clinic = await prisma.clinic.findUnique({
+      where: { id: clinicId },
+      select: { slotMinutes: true },
+    });
+    if (!clinic) {
+      return res.status(404).json({ message: `No clinic found with id ${clinicId}` });
+    }
+
+    const slotMinutes = clinic.slotMinutes;
 
     const slotsByVet = await getClinicSlotsForDay({ clinicId, date, slotMinutes, vetId });
     if (slotsByVet === undefined) {
       return res.status(404).json({ message: `No clinic found with id ${clinicId}` });
     }
 
-    return res.json({ date, clinicId, slotDuration: slotMinutes, slotsByVet });
+    return res.json({ date, clinicId, slotMinutes, slotsByVet });
   } catch (err: any) {
     if (err instanceof z.ZodError) {
       return res.status(400).json({ message: err.errors });
