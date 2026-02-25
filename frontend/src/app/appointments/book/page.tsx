@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 
 export default function BookPage() {
 return (
-<AuthGate roles={['OWNER', 'CLINIC_ADMIN', 'VET']}>
+<AuthGate roles={['OWNER']}>
 <div className="max-w-3xl mx-auto p-6">
 <Card>
 <CardContent className="p-6">
