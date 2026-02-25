@@ -197,16 +197,6 @@ export async function createAppointment(payload: {
   return data;
 }
 
-export async function updateAppointmentStatus(
-  id: string,
-  status: "CONFIRMED" | "CANCELLED" | "COMPLETED"
-): Promise<Appointment> {
-  const { data } = await api.patch<Appointment>(`/appointments/${id}/status`, {
-    status,
-  });
-  return data;
-}
-
 export async function rescheduleAppointment(
   id: string,
   dateUtcIso: string,

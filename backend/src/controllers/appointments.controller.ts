@@ -72,7 +72,7 @@ export const createAppointment = async (req: Request, res: Response) => {
       });
     }
 
-    //Create appointment (PENDING by default)
+    //Create appointment
     const created = await prisma.appointment.create({
       data: {
         date: start,
