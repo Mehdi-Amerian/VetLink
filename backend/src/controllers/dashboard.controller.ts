@@ -24,14 +24,25 @@ const dateFilter = dateFrom ? { gte: dateFrom } : undefined;
   try {
     if (role === 'OWNER') {
       const totalPets = await prisma.pet.count({ where: { ownerId: userId, isDeleted: false } });
+      const now = new Date();
+
       const upcomingAppointments = await prisma.appointment.count({
         where: {
           ownerId: userId,
-          date: dateFilter,
-        }
+          cancelledAt: null,
+          date: {
+            ...(dateFilter ?? {}),
+            gte: now,
+          },
+        },
       });
+
       const cancelled = await prisma.appointment.count({
-        where: { ownerId: userId, date: dateFilter }
+        where: {
+          ownerId: userId,
+          cancelledAt: { not: null },
+          ...(dateFilter ? { date: dateFilter } : {}),
+        },
       });
 
       return res.json({
@@ -54,28 +65,44 @@ const dateFilter = dateFrom ? { gte: dateFrom } : undefined;
 
       const vetId = user.vetId;
 
+      const now = new Date();
+    
       const appointmentsToday = await prisma.appointment.count({
         where: {
           vetId,
           date: {
             gte: new Date(new Date().setHours(0, 0, 0, 0)),
-            lte: new Date(new Date().setHours(23, 59, 59, 999))},
-        }
+            lte: new Date(new Date().setHours(23, 59, 59, 999))
+          },
+            cancelledAt: null,
+        },
       });
 
-      const pending = await prisma.appointment.count({
-        where: { vetId, date: dateFilter }
+      const upcomingAppointments = await prisma.appointment.count({
+        where: {
+          vetId,
+          cancelledAt: null,
+          date: {
+            ...(dateFilter ?? {}),
+            gte: now,
+          },
+        },
       });
 
-      const confirmed = await prisma.appointment.count({
-        where: { vetId, date: dateFilter }
+      const cancelled = await prisma.appointment.count({
+        where: {
+          vetId,
+          cancelledAt: { not: null },
+          ...(dateFilter ? { date: dateFilter } : {}),
+        },
       });
 
       const appointmentsGrouped = await prisma.appointment.groupBy({
         by: ['date'],
         where: {
             vetId,
-            date: dateFilter
+            cancelledAt: null,
+            ...(dateFilter ? { date: dateFilter } : {})
         },
         _count: true,
         orderBy: { date: 'asc' }
@@ -89,8 +116,8 @@ const dateFilter = dateFrom ? { gte: dateFrom } : undefined;
       return res.json({
         role,
         appointmentsToday,
-        pending,
-        confirmed,
+        upcomingAppointments,
+        cancelled,
         dailyAppointments
       });
     }
@@ -109,7 +136,19 @@ const dateFilter = dateFrom ? { gte: dateFrom } : undefined;
       });
 
       const totalAppointments = await prisma.appointment.count({
-        where: { clinicId: user.clinicId, date: dateFilter }
+        where: {
+          clinicId: user.clinicId,
+          cancelledAt: null,
+          ...(dateFilter ? { date: dateFilter } : {}),
+        }
+      });
+
+       const cancelledAppointments = await prisma.appointment.count({
+        where: {
+          clinicId: user.clinicId,
+          cancelledAt: { not: null },
+          ...(dateFilter ? { date: dateFilter } : {}),
+        },
       });
 
       const emergenciesToday = await prisma.appointment.count({
@@ -127,6 +166,7 @@ const dateFilter = dateFrom ? { gte: dateFrom } : undefined;
         role,
         totalVets,
         totalAppointments,
+        cancelledAppointments,
         emergenciesToday
       });
     }
