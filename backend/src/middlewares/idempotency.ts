@@ -1,4 +1,4 @@
-import { NextFunction, Request, Response } from 'express';
+﻿import { NextFunction, Request, Response } from 'express';
 import { addHours } from 'date-fns';
 import prisma from '../config/prismaClient';
 import { hashJsonStable } from '../utils/hash';
@@ -64,7 +64,8 @@ export async function idempotencyMiddleware(req: Request, res: Response, next: N
         // Race: another handler stored it first — replay winner
         const winner = await prisma.idempotencyRequest.findUnique({ where: { key } });
         if (winner) {
-          return res.status(winner.statusCode).json(winner.responseBody);
+          res.status(winner.statusCode);
+          return originalJson(winner.responseBody);
         }
         throw e;
       }
@@ -77,3 +78,4 @@ export async function idempotencyMiddleware(req: Request, res: Response, next: N
     return res.status(500).json({ error: 'Internal Server Error', message: 'Idempotency failure' });
   }
 }
+

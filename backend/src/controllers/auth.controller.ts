@@ -135,7 +135,7 @@ export const getMe = async (req: Request, res: Response) => {
       updatedAt: user.updatedAt,
     };
 
-    res.json({ authUser });
+    res.json(authUser);
   } catch (err) {
     res.status(500).json({ message: 'Internal server error' });
   }

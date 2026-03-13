@@ -1,4 +1,4 @@
-// src/app/dashboard/super-admin/page.tsx
+﻿// src/app/dashboard/super-admin/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -59,13 +59,6 @@ export default function SuperAdminDashboardPage() {
     ready,
     user,
     router,
-    clinicName,
-    clinicEmail,
-    clinicPhone,
-    clinicAddress,
-    clinicCity,
-    clinicZip,
-    clinicEmergency,
   ]);
 
   const nameValid = clinicName.trim().length > 0;
@@ -311,3 +304,4 @@ export default function SuperAdminDashboardPage() {
     </div>
   );
 }
+

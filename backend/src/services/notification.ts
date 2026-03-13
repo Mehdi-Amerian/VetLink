@@ -1,4 +1,4 @@
-import prisma from '../config/prismaClient';
+﻿import prisma from '../config/prismaClient';
 import { formatInTimeZone } from 'date-fns-tz';
 import sendgrid from '@sendgrid/mail';
 import { appointmentReminderTemplate } from './templates';
@@ -34,6 +34,7 @@ export async function sendRemindersForWindow(start: Date, end: Date) {
   const appts = await prisma.appointment.findMany({
     where: {
       date:   { gte: start, lt: end },
+      cancelledAt: null,
     },
     include: { owner: true, pet: true, clinic: true },
   });
@@ -80,3 +81,4 @@ export async function sendRemindersForWindow(start: Date, end: Date) {
     }
   }
 }
+

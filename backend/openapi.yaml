@@ -528,9 +528,13 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Availability"
+                type: object
+                properties:
+                  availability:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Availability"
+                required: [availability]
         "404":
           description: Vet not found
           content:
@@ -544,14 +548,14 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /api/{Id}:
+  /api/availability/{availabilityId}:
     patch:
       tags: [Availability]
       summary: Update an availability block (VET only)
       operationId: availabilityUpdate
       parameters:
         - in: path
-          name: Id
+          name: availabilityId
           required: true
           schema: { type: string, format: uuid }
       requestBody:
@@ -578,7 +582,7 @@ paths:
       operationId: availabilityDelete
       parameters:
         - in: path
-          name: Id
+          name: availabilityId
           required: true
           schema: { type: string, format: uuid }
       responses:
@@ -671,6 +675,30 @@ paths:
                 $ref: "#/components/schemas/Error"
 
   /api/appointments:
+    get:
+      tags: [Appointments]
+      summary: List appointments for the current owner
+      operationId: appointmentsListMine
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppointmentsResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
     post:
       tags: [Appointments]
       summary: Create an appointment
@@ -721,6 +749,121 @@ paths:
                 $ref: "#/components/schemas/Error"
         "403":
           description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/appointments/vet:
+    get:
+      tags: [Appointments]
+      summary: List appointments for the current vet
+      operationId: appointmentsListForVet
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppointmentsResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/appointments/{id}:
+    patch:
+      tags: [Appointments]
+      summary: Reschedule an appointment (owner only)
+      operationId: appointmentsReschedule
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppointmentRescheduleDTO"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppointmentResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Appointment not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Time conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/appointments/{id}/cancel:
+    patch:
+      tags: [Appointments]
+      summary: Cancel an appointment
+      operationId: appointmentsCancel
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Cancelled or already cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppointmentCancelResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Appointment not found
           content:
             application/json:
               schema:
@@ -1141,6 +1284,7 @@ components:
         id: { type: string, format: uuid }
         date: { type: string, format: date-time }
         endTime: { type: string, format: date-time }
+        cancelledAt: { type: [string, "null"], format: date-time }
         reason: { type: string }
         emergency: { type: boolean }
         petId: { type: string, format: uuid }
@@ -1186,6 +1330,38 @@ components:
         petId: { type: string, format: uuid }
         clinicId: { type: string, format: uuid }
         vetId: { type: string, format: uuid }
+
+    AppointmentRescheduleDTO:
+      type: object
+      required: [date]
+      properties:
+        date:
+          type: string
+          format: date-time
+
+    AppointmentsResponse:
+      type: object
+      properties:
+        appointments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Appointment"
+      required: [appointments]
+
+    AppointmentResponse:
+      type: object
+      properties:
+        appointment:
+          $ref: "#/components/schemas/Appointment"
+      required: [appointment]
+
+    AppointmentCancelResponse:
+      type: object
+      properties:
+        message: { type: string }
+        appointment:
+          $ref: "#/components/schemas/Appointment"
+      required: [message]
 
     NotificationPreference:
       type: object
