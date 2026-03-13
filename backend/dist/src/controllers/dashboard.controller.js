@@ -21,15 +21,23 @@ const getDashboard = async (req, res) => {
     try {
         if (role === 'OWNER') {
             const totalPets = await prismaClient_1.prisma.pet.count({ where: { ownerId: userId, isDeleted: false } });
+            const now = new Date();
             const upcomingAppointments = await prismaClient_1.prisma.appointment.count({
                 where: {
                     ownerId: userId,
-                    date: dateFilter,
-                    status: { in: ['PENDING', 'CONFIRMED'] }
-                }
+                    cancelledAt: null,
+                    date: {
+                        ...(dateFilter ?? {}),
+                        gte: now,
+                    },
+                },
             });
             const cancelled = await prismaClient_1.prisma.appointment.count({
-                where: { ownerId: userId, status: 'CANCELLED', date: dateFilter }
+                where: {
+                    ownerId: userId,
+                    cancelledAt: { not: null },
+                    ...(dateFilter ? { date: dateFilter } : {}),
+                },
             });
             return res.json({
                 role,
@@ -39,34 +47,48 @@ const getDashboard = async (req, res) => {
             });
         }
         if (role === 'VET') {
-            const vet = await prismaClient_1.prisma.user.findUnique({
+            const user = await prismaClient_1.prisma.user.findUnique({
                 where: { id: userId },
-                include: { vetProfile: true }
+                select: { vetId: true }
             });
-            if (!vet?.vetProfile?.id) {
+            if (!user?.vetId) {
                 return res.status(400).json({ message: 'No vet profile linked' });
             }
+            const vetId = user.vetId;
+            const now = new Date();
             const appointmentsToday = await prismaClient_1.prisma.appointment.count({
                 where: {
-                    vetId: vet.vetProfile.id,
+                    vetId,
                     date: {
                         gte: new Date(new Date().setHours(0, 0, 0, 0)),
                         lte: new Date(new Date().setHours(23, 59, 59, 999))
                     },
-                    status: { in: ['PENDING', 'CONFIRMED'] }
-                }
+                    cancelledAt: null,
+                },
             });
-            const pending = await prismaClient_1.prisma.appointment.count({
-                where: { vetId: vet.vetProfile.id, status: 'PENDING', date: dateFilter }
+            const upcomingAppointments = await prismaClient_1.prisma.appointment.count({
+                where: {
+                    vetId,
+                    cancelledAt: null,
+                    date: {
+                        ...(dateFilter ?? {}),
+                        gte: now,
+                    },
+                },
             });
-            const confirmed = await prismaClient_1.prisma.appointment.count({
-                where: { vetId: vet.vetProfile.id, status: 'CONFIRMED', date: dateFilter }
+            const cancelled = await prismaClient_1.prisma.appointment.count({
+                where: {
+                    vetId,
+                    cancelledAt: { not: null },
+                    ...(dateFilter ? { date: dateFilter } : {}),
+                },
             });
             const appointmentsGrouped = await prismaClient_1.prisma.appointment.groupBy({
                 by: ['date'],
                 where: {
-                    vetId: vet.vetProfile.id,
-                    date: dateFilter
+                    vetId,
+                    cancelledAt: null,
+                    ...(dateFilter ? { date: dateFilter } : {})
                 },
                 _count: true,
                 orderBy: { date: 'asc' }
@@ -78,8 +100,8 @@ const getDashboard = async (req, res) => {
             return res.json({
                 role,
                 appointmentsToday,
-                pending,
-                confirmed,
+                upcomingAppointments,
+                cancelled,
                 dailyAppointments
             });
         }
@@ -94,7 +116,18 @@ const getDashboard = async (req, res) => {
                 where: { clinicId: user.clinicId }
             });
             const totalAppointments = await prismaClient_1.prisma.appointment.count({
-                where: { clinicId: user.clinicId, date: dateFilter }
+                where: {
+                    clinicId: user.clinicId,
+                    cancelledAt: null,
+                    ...(dateFilter ? { date: dateFilter } : {}),
+                }
+            });
+            const cancelledAppointments = await prismaClient_1.prisma.appointment.count({
+                where: {
+                    clinicId: user.clinicId,
+                    cancelledAt: { not: null },
+                    ...(dateFilter ? { date: dateFilter } : {}),
+                },
             });
             const emergenciesToday = await prismaClient_1.prisma.appointment.count({
                 where: {
@@ -110,6 +143,7 @@ const getDashboard = async (req, res) => {
                 role,
                 totalVets,
                 totalAppointments,
+                cancelledAppointments,
                 emergenciesToday
             });
         }
@@ -127,13 +161,13 @@ const exportAppointmentsCsv = async (req, res) => {
     if (role === 'OWNER')
         where.ownerId = userId;
     else if (role === 'VET') {
-        const vet = await prismaClient_1.prisma.user.findUnique({
+        const user = await prismaClient_1.prisma.user.findUnique({
             where: { id: userId },
-            include: { vetProfile: true }
+            select: { vetId: true }
         });
-        if (!vet?.vetProfile?.id)
+        if (!user?.vetId)
             return res.status(400).json({ message: 'No vet profile linked' });
-        where.vetId = vet.vetProfile.id;
+        where.vetId = user.vetId;
     }
     else if (role === 'CLINIC_ADMIN') {
         const admin = await prismaClient_1.prisma.user.findUnique({ where: { id: userId } });
@@ -153,7 +187,6 @@ const exportAppointmentsCsv = async (req, res) => {
         AppointmentID: a.id,
         Date: a.date.toISOString(),
         Reason: a.reason,
-        Status: a.status,
         Emergency: a.emergency ? 'Yes' : 'No',
         Pet: a.pet.name,
         Clinic: a.clinic.name,

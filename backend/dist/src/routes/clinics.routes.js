@@ -9,5 +9,7 @@ const router = (0, express_1.Router)();
 router.get('/', clinics_controller_1.getClinics);
 router.get('/:id', clinics_controller_1.getClinicById);
 // Admin-only route
-router.post('/', verifyToken_1.verifyToken, (0, checkRole_1.checkRole)('CLINIC_ADMIN'), clinics_controller_1.createClinic);
+router.post('/', verifyToken_1.verifyToken, (0, checkRole_1.checkRole)(['CLINIC_ADMIN', 'SUPER_ADMIN']), clinics_controller_1.createClinic);
+//Update clinic
+router.patch('/:id', verifyToken_1.verifyToken, (0, checkRole_1.checkRole)(['CLINIC_ADMIN', 'SUPER_ADMIN']), clinics_controller_1.updateClinic);
 exports.default = router;

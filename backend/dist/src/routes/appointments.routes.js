@@ -5,9 +5,11 @@ const appointments_controller_1 = require("../controllers/appointments.controlle
 const appointments_controller_2 = require("../controllers/appointments.controller");
 const verifyToken_1 = require("../middlewares/verifyToken");
 const checkRole_1 = require("../middlewares/checkRole");
+const idempotency_1 = require("../middlewares/idempotency");
 const router = (0, express_1.Router)();
-router.post('/', verifyToken_1.verifyToken, (0, checkRole_1.checkRole)('OWNER'), appointments_controller_1.createAppointment);
+router.post('/', verifyToken_1.verifyToken, (0, checkRole_1.checkRole)('OWNER'), idempotency_1.idempotencyMiddleware, appointments_controller_1.createAppointment);
 router.get('/', verifyToken_1.verifyToken, (0, checkRole_1.checkRole)('OWNER'), appointments_controller_1.getMyAppointments);
 router.get('/vet', verifyToken_1.verifyToken, (0, checkRole_1.checkRole)('VET'), appointments_controller_1.getAppointmentsForVet);
-router.patch('/:id/status', verifyToken_1.verifyToken, appointments_controller_2.updateAppointmentStatus);
+router.patch('/:id/cancel', verifyToken_1.verifyToken, appointments_controller_2.cancelAppointment);
+router.patch('/:id', verifyToken_1.verifyToken, appointments_controller_2.updateAppointmentTime);
 exports.default = router;

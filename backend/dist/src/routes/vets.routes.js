@@ -7,7 +7,10 @@ const checkRole_1 = require("../middlewares/checkRole");
 const router = (0, express_1.Router)();
 // Public routes
 router.get('/', vets_controller_1.getVets);
+// Vet profile update
+router.patch('/me', verifyToken_1.verifyToken, (0, checkRole_1.checkRole)('VET'), vets_controller_1.updateMyVetProfile);
+// Get vet by ID
 router.get('/:id', vets_controller_1.getVetById);
 // Admin-only vet registration
-router.post('/', verifyToken_1.verifyToken, (0, checkRole_1.checkRole)(['CLINIC_ADMIN', 'SUPER_ADMIN']), vets_controller_1.createVet);
+router.post('/', verifyToken_1.verifyToken, (0, checkRole_1.checkRole)('CLINIC_ADMIN'), vets_controller_1.createVet);
 exports.default = router;
