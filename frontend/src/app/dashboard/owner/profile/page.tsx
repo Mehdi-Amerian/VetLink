@@ -45,6 +45,11 @@ function OwnerProfileInner() {
 
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const today = useMemo(() => {
+    const now = new Date();
+    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
+    return local.toISOString().slice(0, 10);
+  }, []);
 
   // guards + initial load
   useEffect(() => {
@@ -276,6 +281,7 @@ function OwnerProfileInner() {
                 <Input
                   type="date"
                   value={newPetBirth}
+                  max={today}
                   onChange={(e) => setNewPetBirth(e.target.value)}
                 />
               </div>

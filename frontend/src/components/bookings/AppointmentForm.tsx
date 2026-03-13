@@ -34,6 +34,12 @@ export default function AppointmentForm() {
   const [reason, setReason] = useState<string>("");
   const [emergency, setEmergency] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState(false);
+  const today = useMemo(() => {
+    const now = new Date();
+    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
+    return local.toISOString().slice(0, 10);
+  }, []);
+
   const canSubmit = useMemo(
     () =>
       clinicId &&
@@ -153,6 +159,7 @@ export default function AppointmentForm() {
           <Input
             type="date"
             value={date}
+            min={today}
             onChange={(e) => setDate(e.target.value)}
           />
         </div>

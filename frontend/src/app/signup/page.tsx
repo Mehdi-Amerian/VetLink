@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,6 +28,11 @@ export default function SignupPage() {
   const [petBirthDate, setPetBirthDate] = useState(''); // YYYY-MM-DD
 
   const [loading, setLoading] = useState(false);
+  const today = useMemo(() => {
+    const now = new Date();
+    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
+    return local.toISOString().slice(0, 10);
+  }, []);
 
   const passwordsMatch = password.length > 0 && password === confirm;
 
@@ -193,6 +198,7 @@ export default function SignupPage() {
                 id="petBirthDate"
                 type="date"
                 value={petBirthDate}
+                max={today}
                 onChange={(e) => setPetBirthDate(e.target.value)}
               />
             </div>

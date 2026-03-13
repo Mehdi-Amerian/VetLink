@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../config/prismaClient';
-import { parseClientToUtc } from '../utils/time';
+import { parseClientToUtc, toLocal } from '../utils/time';
 
 const OVERLAP_CONSTRAINT = 'Appointment_no_overlapping_active_vet_slots';
 
@@ -22,6 +22,16 @@ function isOverlapConstraintError(err: unknown): boolean {
   candidates.push(err.message);
 
   return candidates.some((v) => v.includes(OVERLAP_CONSTRAINT));
+}
+
+function isPastDayInClinicZone(value: Date): boolean {
+  const selectedDay = toLocal(value);
+  selectedDay.setHours(0, 0, 0, 0);
+
+  const today = toLocal(new Date());
+  today.setHours(0, 0, 0, 0);
+
+  return selectedDay.getTime() < today.getTime();
 }
 
 // 1) Validate input
@@ -56,6 +66,13 @@ export const createAppointment = async (req: Request, res: Response) => {
     const slotMinutes = clinic.slotMinutes ?? 30;
 
     const start = parseClientToUtc(data.date);
+    if (isPastDayInClinicZone(start)) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Appointment date cannot be in the past.',
+      });
+    }
+
     const end = new Date(start.getTime() + slotMinutes * 60_000);
 
     // Owner can only book for their own pet
@@ -227,6 +244,10 @@ export const updateAppointmentTime = async (req: Request, res: Response) => {
     const slotMinutes = clinic?.slotMinutes ?? 30;
 
     const newStart = parseClientToUtc(date);
+    if (isPastDayInClinicZone(newStart)) {
+      return res.status(400).json({ message: 'Appointment date cannot be in the past' });
+    }
+
     const newEnd = new Date(newStart.getTime() + slotMinutes * 60_000);
 
     const overlap = await prisma.appointment.findFirst({
