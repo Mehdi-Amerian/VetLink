@@ -10,26 +10,35 @@ const createClinicAdminInviteSchema = z.object({
 });
 
 export async function inviteClinicAdmin(req: Request, res: Response) {
-  const { role } = (req as any).user;
+  try {
+    const { role } = (req as any).user;
 
-  if (role !== 'SUPER_ADMIN') {
-    return res.status(403).json({ message: 'Only SUPER_ADMIN can invite clinic admins' });
+    if (role !== 'SUPER_ADMIN') {
+      return res.status(403).json({ message: 'Only SUPER_ADMIN can invite clinic admins' });
+    }
+
+    const { email, clinicId } = createClinicAdminInviteSchema.parse(req.body);
+
+    // ensure clinic exists
+    const clinic = await prisma.clinic.findUnique({ where: { id: clinicId } });
+    if (!clinic) return res.status(404).json({ message: 'Clinic not found' });
+
+    const invite = await createInvite({
+      email,
+      role: Role.CLINIC_ADMIN,
+      clinicId,
+      expiresInDays: 7,
+    });
+
+    return res.status(201).json({ invite });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ message: err.flatten() });
+    }
+
+    console.error('[inviteClinicAdmin] error', err);
+    return res.status(502).json({ message: 'Failed to create and send invite' });
   }
-
-  const { email, clinicId } = createClinicAdminInviteSchema.parse(req.body);
-
-  // ensure clinic exists
-  const clinic = await prisma.clinic.findUnique({ where: { id: clinicId } });
-  if (!clinic) return res.status(404).json({ message: 'Clinic not found' });
-
-  const invite = await createInvite({
-    email,
-    role: Role.CLINIC_ADMIN,
-    clinicId,
-    expiresInDays: 7,
-  });
-
-  return res.status(201).json({ invite });
 }
 
 const createVetInviteSchema = z.object({
@@ -38,29 +47,38 @@ const createVetInviteSchema = z.object({
 });
 
 export async function inviteVet(req: Request, res: Response) {
-  const { role, clinicId } = (req as any).user;
+  try {
+    const { role, clinicId } = (req as any).user;
 
-  if (role !== 'CLINIC_ADMIN') {
-    return res.status(403).json({ message: 'Only CLINIC_ADMIN can invite vets' });
+    if (role !== 'CLINIC_ADMIN') {
+      return res.status(403).json({ message: 'Only CLINIC_ADMIN can invite vets' });
+    }
+
+    const { email, vetId } = createVetInviteSchema.parse(req.body);
+
+    const vet = await prisma.vet.findUnique({ where: { id: vetId } });
+    if (!vet) return res.status(404).json({ message: 'Vet not found' });
+
+    // clinic admin can only invite vets in their clinic
+    if (vet.clinicId !== clinicId) {
+      return res.status(403).json({ message: 'Vet does not belong to your clinic' });
+    }
+
+    const invite = await createInvite({
+      email,
+      role: Role.VET,
+      vetId,
+      clinicId: vet.clinicId,
+      expiresInDays: 7,
+    });
+
+    return res.status(201).json({ invite });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ message: err.flatten() });
+    }
+
+    console.error('[inviteVet] error', err);
+    return res.status(502).json({ message: 'Failed to create and send invite' });
   }
-
-  const { email, vetId } = createVetInviteSchema.parse(req.body);
-
-  const vet = await prisma.vet.findUnique({ where: { id: vetId } });
-  if (!vet) return res.status(404).json({ message: 'Vet not found' });
-
-  // clinic admin can only invite vets in their clinic
-  if (vet.clinicId !== clinicId) {
-    return res.status(403).json({ message: 'Vet does not belong to your clinic' });
-  }
-
-  const invite = await createInvite({
-    email,
-    role: Role.VET,
-    vetId,
-    clinicId: vet.clinicId,
-    expiresInDays: 7,
-  });
-
-  return res.status(201).json({ invite });
 }
