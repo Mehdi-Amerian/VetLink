@@ -31,6 +31,10 @@
   app.use(express.json());
   app.set('trust proxy', 1);
 
+  // Apply rate limits before route handlers on the same prefixes.
+  app.use('/api/auth', authLimiter);
+  app.use('/api/appointments', bookingLimiter);
+
   // Routes
   app.use('/api/auth', authRoutes);
   app.use('/api/pets', petsRoutes);
@@ -40,8 +44,6 @@
   app.use('/api/appointments', appointmentsRoutes);
   app.use('/api/dashboard', dashboardRoutes);
   app.use('/api/notifications', notificationsRouter);
-  app.use('/api/auth', authLimiter);
-  app.use('/api/appointments', bookingLimiter);
   app.use('/api/admin', adminInvitesRoutes);
   app.use('/api/auth', acceptInviteRoutes);
   app.use('/api/users', usersRoutes);
