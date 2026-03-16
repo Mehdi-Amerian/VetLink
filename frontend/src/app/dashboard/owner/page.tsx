@@ -1,53 +1,46 @@
 'use client';
-import AuthGate from '@/components/auth/AuthGate';
-import { useEffect, useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { getMyAppointments } from '@/lib/fetchers';
-import { serverUtcToLocalLabel } from '@/lib/time';
-import type { Appointment } from '@/lib/types';
+
+import { useCallback } from 'react';
 import Link from 'next/link';
 
-
-export default function OwnerDashboard() {
-return (
-<AuthGate roles={['OWNER']}>
-<OwnerView />
-</AuthGate>
-);
-}
-
+import AuthGate from '@/components/auth/AuthGate';
+import AppointmentsBoard from '@/components/appointments/AppointmentsBoard';
+import { getMyAppointments } from '@/lib/fetchers';
+import { Button } from '@/components/ui/button';
 
 function OwnerView() {
-const [list, setList] = useState<Appointment[]>([]);
-const load = async () => {
-     try {
-         setList(await getMyAppointments());
-        } catch {
+  const loadAppointments = useCallback(
+    (params: { view: 'upcoming' | 'history'; page: number; pageSize: number }) =>
+      getMyAppointments(params),
+    []
+  );
 
-        }
-};
-useEffect(() => { void load(); }, []);
+  return (
+    <div className="max-w-5xl mx-auto p-6 space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-xl font-semibold">My Appointments</h1>
 
-return (
-<div className="max-w-4xl mx-auto p-6 space-y-4">
-<div className="flex justify-between items-center">
-<h1 className="text-xl font-semibold">My Appointments</h1>
-<Link href="/appointments/book"><Button>Book new</Button></Link>
-<Link href="/dashboard/owner/profile">
-    <Button variant="outline" size="sm">
-        Profile
-    </Button>
-</Link>
-</div>
-{list.map((a) => (
-<Card key={a.id}><CardContent className="p-4 flex items-center justify-between">
-<div>
-<div className="font-medium">{serverUtcToLocalLabel(a.date)} → {serverUtcToLocalLabel(a.endTime)}</div>
-<div className="text-sm text-muted-foreground">{a.reason}</div>
-</div>
-</CardContent></Card>
-))}
-</div>
-);
+        <div className="flex items-center gap-2">
+          <Link href="/appointments/book">
+            <Button>Book new</Button>
+          </Link>
+          <Link href="/dashboard/owner/profile">
+            <Button variant="outline" size="sm">
+              Profile
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      <AppointmentsBoard role="OWNER" loadAppointments={loadAppointments} />
+    </div>
+  );
+}
+
+export default function OwnerDashboard() {
+  return (
+    <AuthGate roles={['OWNER']}>
+      <OwnerView />
+    </AuthGate>
+  );
 }

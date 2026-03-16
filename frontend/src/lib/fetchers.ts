@@ -3,7 +3,7 @@ import { api, withIdempotency } from "./api";
 import { v4 as uuidv4 } from "uuid";
 import type {
   Appointment,
-  OwnerAppointment,
+  DashboardAppointment,
   Pet,
   Slot,
   Clinic,
@@ -13,6 +13,8 @@ import type {
   Availability,
   Weekday,
   User,
+  AppointmentView,
+  AppointmentsPage,
 } from "./types";
 
 function unwrapArray<T>(data: unknown, field?: string): T[] {
@@ -33,6 +35,52 @@ function unwrapArray<T>(data: unknown, field?: string): T[] {
 
   // Fallback: nothing usable
   return [];
+}
+
+function normalizeAppointmentsPage(
+  data: unknown,
+  fallbackPage: number,
+  fallbackPageSize: number
+): AppointmentsPage<DashboardAppointment> {
+  const appointments = unwrapArray<DashboardAppointment>(data, "appointments");
+
+  if (
+    data &&
+    typeof data === "object" &&
+    "pagination" in data &&
+    (data as { pagination?: unknown }).pagination &&
+    typeof (data as { pagination?: unknown }).pagination === "object"
+  ) {
+    const p = (data as { pagination: Record<string, unknown> }).pagination;
+    const page = typeof p.page === "number" ? p.page : fallbackPage;
+    const pageSize = typeof p.pageSize === "number" ? p.pageSize : fallbackPageSize;
+    const total = typeof p.total === "number" ? p.total : appointments.length;
+    const totalPages =
+      typeof p.totalPages === "number"
+        ? p.totalPages
+        : total === 0
+          ? 0
+          : Math.ceil(total / pageSize);
+    const hasMore =
+      typeof p.hasMore === "boolean" ? p.hasMore : page < totalPages;
+
+    return {
+      appointments,
+      pagination: { page, pageSize, total, totalPages, hasMore },
+    };
+  }
+
+  const total = appointments.length;
+  return {
+    appointments,
+    pagination: {
+      page: fallbackPage,
+      pageSize: fallbackPageSize,
+      total,
+      totalPages: total === 0 ? 0 : Math.ceil(total / fallbackPageSize),
+      hasMore: false,
+    },
+  };
 }
 
 // ----- basic list fetchers -----
@@ -154,18 +202,44 @@ export async function getClinicSlots(
 
 // ----- appointments (owner + vet views) -----
 
-export async function getMyAppointments(): Promise<OwnerAppointment[]> {
-  const { data } = await api.get<{ appointments: OwnerAppointment[] }>(
-    "/appointments"
-  );
-  return data.appointments;
+type AppointmentListParams = {
+  view?: AppointmentView;
+  page?: number;
+  pageSize?: number;
+};
+
+export async function getMyAppointments(
+  params: AppointmentListParams = {}
+): Promise<AppointmentsPage<DashboardAppointment>> {
+  const page = params.page ?? 1;
+  const pageSize = params.pageSize ?? 20;
+
+  const { data } = await api.get("/appointments", {
+    params: {
+      view: params.view ?? "upcoming",
+      page,
+      pageSize,
+    },
+  });
+
+  return normalizeAppointmentsPage(data, page, pageSize);
 }
 
-export async function getMyVetAppointments(): Promise<Appointment[]> {
-  const { data } = await api.get<{ appointments: Appointment[] }>(
-    "/appointments/vet"
-  );
-  return data.appointments;
+export async function getMyVetAppointments(
+  params: AppointmentListParams = {}
+): Promise<AppointmentsPage<DashboardAppointment>> {
+  const page = params.page ?? 1;
+  const pageSize = params.pageSize ?? 20;
+
+  const { data } = await api.get("/appointments/vet", {
+    params: {
+      view: params.view ?? "upcoming",
+      page,
+      pageSize,
+    },
+  });
+
+  return normalizeAppointmentsPage(data, page, pageSize);
 }
 
 // ----- create/update appointments -----

@@ -18,11 +18,28 @@ export interface Slot {
   time: string; // 'HH:mm' for the selected date in local time
 }
 
-//UI-friendly appointment including expansions
-export interface OwnerAppointment extends Appointment {
+// UI-friendly appointment including expansions.
+export interface DashboardAppointment extends Appointment {
+  cancelledAt?: string | null;
   pet?: Pet;
   vet?: Vet;
+  owner?: User;
   clinic?: Clinic;
+}
+
+export type AppointmentView = 'upcoming' | 'history';
+
+export interface AppointmentPagination {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  hasMore: boolean;
+}
+
+export interface AppointmentsPage<T = DashboardAppointment> {
+  appointments: T[];
+  pagination: AppointmentPagination;
 }
 
 export type Weekday =

@@ -5,6 +5,13 @@ import { prisma } from '../config/prismaClient';
 import { parseClientToUtc, toLocal } from '../utils/time';
 
 const OVERLAP_CONSTRAINT = 'Appointment_no_overlapping_active_vet_slots';
+type AppointmentView = 'upcoming' | 'history';
+
+const appointmentsQuerySchema = z.object({
+  view: z.enum(['upcoming', 'history']).optional().default('upcoming'),
+  page: z.coerce.number().int().min(1).optional().default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).optional().default(20),
+});
 
 function isOverlapConstraintError(err: unknown): boolean {
   if (!(err instanceof Prisma.PrismaClientKnownRequestError)) return false;
@@ -32,6 +39,33 @@ function isPastDayInClinicZone(value: Date): boolean {
   today.setHours(0, 0, 0, 0);
 
   return selectedDay.getTime() < today.getTime();
+}
+
+function getViewFilter(view: AppointmentView, now: Date): Prisma.AppointmentWhereInput {
+  if (view === 'upcoming') {
+    return {
+      cancelledAt: null,
+      endTime: { gte: now },
+    };
+  }
+
+  return {
+    OR: [
+      { cancelledAt: { not: null } },
+      { endTime: { lt: now } },
+    ],
+  };
+}
+
+function paginationMeta(page: number, pageSize: number, total: number) {
+  const totalPages = total === 0 ? 0 : Math.ceil(total / pageSize);
+  return {
+    page,
+    pageSize,
+    total,
+    totalPages,
+    hasMore: page < totalPages,
+  };
 }
 
 // 1) Validate input
@@ -149,22 +183,48 @@ export const createAppointment = async (req: Request, res: Response) => {
 
 export const getMyAppointments = async (req: Request, res: Response) => {
   const userId = (req as any).user.userId;
+  const parsed = appointmentsQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ message: parsed.error.flatten() });
+  }
 
-  const appointments = await prisma.appointment.findMany({
-    where: { ownerId: userId },
-    include: {
-      pet: true,
-      vet: true,
-      clinic: true,
-    },
-    orderBy: { date: 'asc' },
+  const { view, page, pageSize } = parsed.data;
+  const now = new Date();
+  const where: Prisma.AppointmentWhereInput = {
+    ownerId: userId,
+    ...getViewFilter(view, now),
+  };
+  const skip = (page - 1) * pageSize;
+
+  const [appointments, total] = await Promise.all([
+    prisma.appointment.findMany({
+      where,
+      include: {
+        pet: true,
+        vet: true,
+        clinic: true,
+      },
+      orderBy: { date: view === 'upcoming' ? 'asc' : 'desc' },
+      skip,
+      take: pageSize,
+    }),
+    prisma.appointment.count({ where }),
+  ]);
+
+  res.json({
+    appointments,
+    pagination: paginationMeta(page, pageSize, total),
   });
-
-  res.json({ appointments });
 };
 
 export const getAppointmentsForVet = async (req: Request, res: Response) => {
   const userId = (req as any).user.userId;
+  const parsed = appointmentsQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ message: parsed.error.flatten() });
+  }
+
+  const { view, page, pageSize } = parsed.data;
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -174,18 +234,32 @@ export const getAppointmentsForVet = async (req: Request, res: Response) => {
   if (!user?.vetId) {
     return res.status(403).json({ message: 'No vet profile linked to this user' });
   }
+  const now = new Date();
+  const where: Prisma.AppointmentWhereInput = {
+    vetId: user.vetId,
+    ...getViewFilter(view, now),
+  };
+  const skip = (page - 1) * pageSize;
 
-  const appointments = await prisma.appointment.findMany({
-    where: { vetId: user.vetId },
-    include: {
-      pet: true,
-      owner: true,
-      clinic: true,
-    },
-    orderBy: { date: 'asc' },
+  const [appointments, total] = await Promise.all([
+    prisma.appointment.findMany({
+      where,
+      include: {
+        pet: true,
+        owner: true,
+        clinic: true,
+      },
+      orderBy: { date: view === 'upcoming' ? 'asc' : 'desc' },
+      skip,
+      take: pageSize,
+    }),
+    prisma.appointment.count({ where }),
+  ]);
+
+  res.json({
+    appointments,
+    pagination: paginationMeta(page, pageSize, total),
   });
-
-  res.json({ appointments });
 };
 
 // soft-cancel appointment
