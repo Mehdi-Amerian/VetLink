@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import axios from "axios";
 
 import AuthGate from "@/components/auth/AuthGate";
@@ -214,7 +215,14 @@ function OwnerProfileInner() {
 
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">My profile</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">My profile</h1>
+        <Link href="/dashboard/owner">
+          <Button variant="outline" size="sm">
+            Back to dashboard
+          </Button>
+        </Link>
+      </div>
 
       {message && <p className="text-sm text-green-600">{message}</p>}
       {error && <p className="text-sm text-red-600">{error}</p>}

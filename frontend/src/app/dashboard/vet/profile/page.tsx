@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import axios from 'axios';
 
 import { useAuth } from '@/providers/auth-provider';
@@ -110,7 +111,14 @@ export default function VetProfilePage() {
 
   return (
     <div className="p-6 space-y-8">
-      <h1 className="text-2xl font-semibold">My vet profile</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">My vet profile</h1>
+        <Link href="/dashboard/vet">
+          <Button variant="outline" size="sm">
+            Back to dashboard
+          </Button>
+        </Link>
+      </div>
       <p className="text-sm text-muted-foreground">
         Update your professional details and manage your working hours.
       </p>
