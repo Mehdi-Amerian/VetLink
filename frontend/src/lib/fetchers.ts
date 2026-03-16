@@ -24,13 +24,11 @@ function unwrapArray<T>(data: unknown, field?: string): T[] {
   }
 
   // If it's an object with a field that is an array → use that
-  if (
-    field &&
-    data &&
-    typeof data === "object" &&
-    Array.isArray((data as any)[field])
-  ) {
-    return (data as any)[field] as T[];
+  if (field && data && typeof data === "object") {
+    const value = (data as Record<string, unknown>)[field];
+    if (Array.isArray(value)) {
+      return value as T[];
+    }
   }
 
   // Fallback: nothing usable

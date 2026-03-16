@@ -1,22 +1,18 @@
-"use client";
+'use client';
 
-import FullCalendar from "@fullcalendar/react";
-import timeGridPlugin from "@fullcalendar/timegrid";
-import type { EventClickArg, EventInput } from "@fullcalendar/core";
+import type { EventClickArg, EventInput } from '@fullcalendar/core';
+import FullCalendar from '@fullcalendar/react';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import axios from 'axios';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import axios from "axios";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { serverUtcToLocalLabel } from "@/lib/time";
-import type {
-  AppointmentView,
-  AppointmentsPage,
-  DashboardAppointment,
-} from "@/lib/types";
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { serverUtcToLocalLabel } from '@/lib/time';
+import type { AppointmentView, AppointmentsPage, DashboardAppointment } from '@/lib/types';
 
-type BoardRole = "OWNER" | "VET";
+type BoardRole = 'OWNER' | 'VET';
 
 type LoadAppointmentsParams = {
   view: AppointmentView;
@@ -35,27 +31,27 @@ const UPCOMING_PAGE_SIZE = 100;
 const HISTORY_PAGE_SIZE = 12;
 
 function eventTitle(appointment: DashboardAppointment, role: BoardRole): string {
-  if (role === "OWNER") {
-    return `${appointment.pet?.name ?? "Pet"} - ${appointment.vet?.name ?? "Vet"}`;
+  if (role === 'OWNER') {
+    return `${appointment.pet?.name ?? 'Pet'} - ${appointment.vet?.name ?? 'Vet'}`;
   }
-  return `${appointment.pet?.name ?? "Pet"} - ${appointment.owner?.fullName ?? "Owner"}`;
+  return `${appointment.pet?.name ?? 'Pet'} - ${appointment.owner?.fullName ?? 'Owner'}`;
 }
 
 function eventSubtitle(appointment: DashboardAppointment, role: BoardRole): string {
   const side =
-    role === "OWNER"
-      ? appointment.vet?.name ?? "Unknown vet"
-      : appointment.owner?.fullName ?? "Unknown owner";
+    role === 'OWNER'
+      ? appointment.vet?.name ?? 'Unknown vet'
+      : appointment.owner?.fullName ?? 'Unknown owner';
   return `${side} | ${appointment.reason}`;
 }
 
 function historyStatus(appointment: DashboardAppointment): string {
-  return appointment.cancelledAt ? "Cancelled" : "Completed";
+  return appointment.cancelledAt ? 'Cancelled' : 'Completed';
 }
 
 function searchableText(appointment: DashboardAppointment, role: BoardRole): string {
   const ownerOrVet =
-    role === "OWNER" ? appointment.vet?.name : appointment.owner?.fullName;
+    role === 'OWNER' ? appointment.vet?.name : appointment.owner?.fullName;
   return [
     appointment.reason,
     appointment.pet?.name,
@@ -64,16 +60,16 @@ function searchableText(appointment: DashboardAppointment, role: BoardRole): str
     appointment.owner?.email,
   ]
     .filter(Boolean)
-    .join(" ")
+    .join(' ')
     .toLowerCase();
 }
 
 export default function AppointmentsBoard({ role, loadAppointments }: Props) {
-  const [activeTab, setActiveTab] = useState<AppointmentView>("upcoming");
+  const [activeTab, setActiveTab] = useState<AppointmentView>('upcoming');
   const [upcoming, setUpcoming] = useState<AppointmentsPage<DashboardAppointment> | null>(null);
   const [history, setHistory] = useState<AppointmentsPage<DashboardAppointment> | null>(null);
   const [historyPage, setHistoryPage] = useState(1);
-  const [historySearch, setHistorySearch] = useState("");
+  const [historySearch, setHistorySearch] = useState('');
   const [selectedUpcomingId, setSelectedUpcomingId] = useState<string | null>(null);
 
   const [loadingUpcoming, setLoadingUpcoming] = useState(false);
@@ -85,19 +81,19 @@ export default function AppointmentsBoard({ role, loadAppointments }: Props) {
     setError(null);
     try {
       const data = await loadAppointments({
-        view: "upcoming",
+        view: 'upcoming',
         page: 1,
         pageSize: UPCOMING_PAGE_SIZE,
       });
       setUpcoming(data);
-    } catch (e: unknown) {
-      if (axios.isAxiosError(e)) {
+    } catch (loadError: unknown) {
+      if (axios.isAxiosError(loadError)) {
         const message =
-          (e.response?.data as { message?: string } | undefined)?.message ??
-          "Failed to load upcoming appointments";
+          (loadError.response?.data as { message?: string } | undefined)?.message ??
+          'Failed to load upcoming appointments';
         setError(message);
       } else {
-        setError("Failed to load upcoming appointments");
+        setError('Failed to load upcoming appointments');
       }
     } finally {
       setLoadingUpcoming(false);
@@ -110,19 +106,19 @@ export default function AppointmentsBoard({ role, loadAppointments }: Props) {
       setError(null);
       try {
         const data = await loadAppointments({
-          view: "history",
+          view: 'history',
           page,
           pageSize: HISTORY_PAGE_SIZE,
         });
         setHistory(data);
-      } catch (e: unknown) {
-        if (axios.isAxiosError(e)) {
+      } catch (loadError: unknown) {
+        if (axios.isAxiosError(loadError)) {
           const message =
-            (e.response?.data as { message?: string } | undefined)?.message ??
-            "Failed to load appointment history";
+            (loadError.response?.data as { message?: string } | undefined)?.message ??
+            'Failed to load appointment history';
           setError(message);
         } else {
-          setError("Failed to load appointment history");
+          setError('Failed to load appointment history');
         }
       } finally {
         setLoadingHistory(false);
@@ -136,7 +132,7 @@ export default function AppointmentsBoard({ role, loadAppointments }: Props) {
   }, [loadUpcoming]);
 
   useEffect(() => {
-    if (activeTab !== "history") return;
+    if (activeTab !== 'history') return;
     void loadHistory(historyPage);
   }, [activeTab, historyPage, loadHistory]);
 
@@ -146,11 +142,11 @@ export default function AppointmentsBoard({ role, loadAppointments }: Props) {
       return;
     }
 
-    const stillExists = upcoming.appointments.some((a) => a.id === selectedUpcomingId);
+    const stillExists = upcoming.appointments.some((appointment) => appointment.id === selectedUpcomingId);
     if (!stillExists) {
       setSelectedUpcomingId(upcoming.appointments[0].id);
     }
-  }, [upcoming, selectedUpcomingId]);
+  }, [selectedUpcomingId, upcoming]);
 
   const upcomingEvents = useMemo<EventInput[]>(
     () =>
@@ -159,6 +155,7 @@ export default function AppointmentsBoard({ role, loadAppointments }: Props) {
         title: eventTitle(appointment, role),
         start: appointment.date,
         end: appointment.endTime,
+        classNames: ['vetlink-fc-event'],
       })),
     [upcoming?.appointments, role]
   );
@@ -168,7 +165,7 @@ export default function AppointmentsBoard({ role, loadAppointments }: Props) {
       (upcoming?.appointments ?? []).find(
         (appointment) => appointment.id === selectedUpcomingId
       ) ?? null,
-    [upcoming?.appointments, selectedUpcomingId]
+    [selectedUpcomingId, upcoming?.appointments]
   );
 
   const filteredHistory = useMemo(() => {
@@ -180,12 +177,15 @@ export default function AppointmentsBoard({ role, loadAppointments }: Props) {
     );
   }, [history?.appointments, historySearch, role]);
 
+  const upcomingTotal = upcoming?.pagination.total ?? upcoming?.appointments.length ?? 0;
+  const historyTotal = history?.pagination.total ?? 0;
+
   function onUpcomingClick(arg: EventClickArg) {
     setSelectedUpcomingId(arg.event.id);
   }
 
   function refreshActiveTab() {
-    if (activeTab === "upcoming") {
+    if (activeTab === 'upcoming') {
       void loadUpcoming();
       return;
     }
@@ -195,43 +195,58 @@ export default function AppointmentsBoard({ role, loadAppointments }: Props) {
   const historyPageLabel =
     history?.pagination.totalPages && history.pagination.totalPages > 0
       ? `${history.pagination.page} / ${history.pagination.totalPages}`
-      : "0 / 0";
+      : '0 / 0';
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant={activeTab === "upcoming" ? "default" : "outline"}
-            onClick={() => setActiveTab("upcoming")}
-          >
-            Upcoming
-          </Button>
-          <Button
-            size="sm"
-            variant={activeTab === "history" ? "default" : "outline"}
-            onClick={() => setActiveTab("history")}
-          >
-            History
-          </Button>
+      <div className="rounded-2xl border border-[#d4e2e9] bg-white/80 p-3 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant={activeTab === 'upcoming' ? 'default' : 'outline'}
+              onClick={() => setActiveTab('upcoming')}
+            >
+              Upcoming
+            </Button>
+            <Button
+              size="sm"
+              variant={activeTab === 'history' ? 'default' : 'outline'}
+              onClick={() => setActiveTab('history')}
+            >
+              History
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <p className="text-xs text-[#577387]">
+              Upcoming: <span className="font-semibold text-[#143b57]">{upcomingTotal}</span>
+            </p>
+            <p className="text-xs text-[#577387]">
+              History: <span className="font-semibold text-[#143b57]">{historyTotal}</span>
+            </p>
+            <Button size="sm" variant="outline" onClick={refreshActiveTab}>
+              Refresh
+            </Button>
+          </div>
         </div>
-        <Button size="sm" variant="outline" onClick={refreshActiveTab}>
-          Refresh
-        </Button>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <div className="status-error">{error}</div>}
 
-      {activeTab === "upcoming" && (
+      {activeTab === 'upcoming' && (
         <div className="space-y-4">
           {loadingUpcoming && !upcoming && (
-            <p className="text-sm text-muted-foreground">Loading upcoming appointments...</p>
+            <Card className="border-[#d5e3ea] bg-white/90">
+              <CardContent className="p-4 text-sm text-[#5d7b8e]">
+                Loading upcoming appointments...
+              </CardContent>
+            </Card>
           )}
 
           {!loadingUpcoming && (upcoming?.appointments.length ?? 0) === 0 && (
-            <Card>
-              <CardContent className="p-4 text-sm text-muted-foreground">
+            <Card className="border-[#d5e3ea] bg-white/90">
+              <CardContent className="p-4 text-sm text-[#5d7b8e]">
                 No upcoming appointments.
               </CardContent>
             </Card>
@@ -239,44 +254,48 @@ export default function AppointmentsBoard({ role, loadAppointments }: Props) {
 
           {(upcoming?.appointments.length ?? 0) > 0 && (
             <>
-              <Card>
+              <Card className="border-[#d5e3ea] bg-white/90">
                 <CardContent className="p-3">
-                  <FullCalendar
-                    plugins={[timeGridPlugin]}
-                    initialView="timeGridWeek"
-                    height="auto"
-                    nowIndicator
-                    allDaySlot={false}
-                    slotMinTime="06:00:00"
-                    slotMaxTime="22:00:00"
-                    headerToolbar={{
-                      left: "prev,next today",
-                      center: "title",
-                      right: "timeGridWeek,timeGridDay",
-                    }}
-                    events={upcomingEvents}
-                    eventClick={onUpcomingClick}
-                  />
+                  <div className="rounded-xl border border-[#d8e5ec] bg-[#fcfeff] p-2">
+                    <FullCalendar
+                      plugins={[timeGridPlugin]}
+                      initialView="timeGridWeek"
+                      height="auto"
+                      nowIndicator
+                      allDaySlot={false}
+                      slotMinTime="06:00:00"
+                      slotMaxTime="22:00:00"
+                      headerToolbar={{
+                        left: 'prev,next today',
+                        center: 'title',
+                        right: 'timeGridWeek,timeGridDay',
+                      }}
+                      events={upcomingEvents}
+                      eventClick={onUpcomingClick}
+                    />
+                  </div>
                 </CardContent>
               </Card>
 
               {selectedUpcoming && (
-                <Card>
-                  <CardContent className="p-4 space-y-2">
-                    <h3 className="font-medium">
-                      {serverUtcToLocalLabel(selectedUpcoming.date)} -{" "}
-                      {serverUtcToLocalLabel(selectedUpcoming.endTime, "HH:mm")}
+                <Card className="border-[#d5e3ea] bg-white/90">
+                  <CardContent className="space-y-2 p-4">
+                    <h3 className="font-semibold text-[#123a55]">
+                      {serverUtcToLocalLabel(selectedUpcoming.date)} -{' '}
+                      {serverUtcToLocalLabel(selectedUpcoming.endTime, 'HH:mm')}
                     </h3>
-                    <p className="text-sm text-muted-foreground">
-                      {eventSubtitle(selectedUpcoming, role)}
-                    </p>
+                    <p className="text-sm text-[#5d7b8e]">{eventSubtitle(selectedUpcoming, role)}</p>
+
                     {selectedUpcoming.clinic?.name && (
-                      <p className="text-sm text-muted-foreground">
-                        Clinic: {selectedUpcoming.clinic.name}
-                      </p>
+                      <p className="text-sm text-[#5d7b8e]">Clinic: {selectedUpcoming.clinic.name}</p>
                     )}
+
+                    <p className="text-sm text-[#1f4960]">Reason: {selectedUpcoming.reason}</p>
+
                     {selectedUpcoming.emergency && (
-                      <p className="text-sm text-red-600">Marked as emergency</p>
+                      <p className="inline-flex rounded-full bg-red-50 px-2 py-1 text-xs font-semibold text-red-700">
+                        Marked as emergency
+                      </p>
                     )}
                   </CardContent>
                 </Card>
@@ -286,38 +305,36 @@ export default function AppointmentsBoard({ role, loadAppointments }: Props) {
         </div>
       )}
 
-      {activeTab === "history" && (
+      {activeTab === 'history' && (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Input
-              className="w-full sm:w-72"
-              placeholder="Search reason, pet, clinic..."
+              className="w-full sm:w-80"
+              placeholder="Search by pet, clinic, person, or reason..."
               value={historySearch}
-              onChange={(e) => setHistorySearch(e.target.value)}
+              onChange={(event) => setHistorySearch(event.target.value)}
             />
-            <p className="text-xs text-muted-foreground">Page {historyPageLabel}</p>
+            <p className="text-xs font-medium text-[#577387]">Page {historyPageLabel}</p>
           </div>
 
-          <Card>
+          <Card className="border-[#d5e3ea] bg-white/90">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="border-b">
+                  <thead className="border-b border-[#d7e4eb] bg-[#f6fafc] text-[#1f4960]">
                     <tr className="text-left">
-                      <th className="p-3 font-medium">Date</th>
-                      <th className="p-3 font-medium">Pet</th>
-                      <th className="p-3 font-medium">
-                        {role === "OWNER" ? "Vet" : "Owner"}
-                      </th>
-                      <th className="p-3 font-medium">Clinic</th>
-                      <th className="p-3 font-medium">Reason</th>
-                      <th className="p-3 font-medium">Status</th>
+                      <th className="p-3 font-semibold">Date</th>
+                      <th className="p-3 font-semibold">Pet</th>
+                      <th className="p-3 font-semibold">{role === 'OWNER' ? 'Vet' : 'Owner'}</th>
+                      <th className="p-3 font-semibold">Clinic</th>
+                      <th className="p-3 font-semibold">Reason</th>
+                      <th className="p-3 font-semibold">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loadingHistory && !history && (
                       <tr>
-                        <td className="p-3 text-muted-foreground" colSpan={6}>
+                        <td className="p-3 text-[#5d7b8e]" colSpan={6}>
                           Loading appointment history...
                         </td>
                       </tr>
@@ -325,26 +342,36 @@ export default function AppointmentsBoard({ role, loadAppointments }: Props) {
 
                     {!loadingHistory && filteredHistory.length === 0 && (
                       <tr>
-                        <td className="p-3 text-muted-foreground" colSpan={6}>
+                        <td className="p-3 text-[#5d7b8e]" colSpan={6}>
                           {(history?.appointments.length ?? 0) === 0
-                            ? "No historical appointments."
-                            : "No matches on this page."}
+                            ? 'No historical appointments.'
+                            : 'No matches on this page.'}
                         </td>
                       </tr>
                     )}
 
                     {filteredHistory.map((appointment) => (
-                      <tr key={appointment.id} className="border-t align-top">
+                      <tr key={appointment.id} className="border-t border-[#edf3f7] align-top">
                         <td className="p-3">{serverUtcToLocalLabel(appointment.date)}</td>
-                        <td className="p-3">{appointment.pet?.name ?? "-"}</td>
+                        <td className="p-3">{appointment.pet?.name ?? '-'}</td>
                         <td className="p-3">
-                          {role === "OWNER"
-                            ? appointment.vet?.name ?? "-"
-                            : appointment.owner?.fullName ?? "-"}
+                          {role === 'OWNER'
+                            ? appointment.vet?.name ?? '-'
+                            : appointment.owner?.fullName ?? '-'}
                         </td>
-                        <td className="p-3">{appointment.clinic?.name ?? "-"}</td>
+                        <td className="p-3">{appointment.clinic?.name ?? '-'}</td>
                         <td className="p-3">{appointment.reason}</td>
-                        <td className="p-3">{historyStatus(appointment)}</td>
+                        <td className="p-3">
+                          <span
+                            className={
+                              appointment.cancelledAt
+                                ? 'inline-flex rounded-full bg-red-50 px-2 py-1 text-xs font-semibold text-red-700'
+                                : 'inline-flex rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700'
+                            }
+                          >
+                            {historyStatus(appointment)}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

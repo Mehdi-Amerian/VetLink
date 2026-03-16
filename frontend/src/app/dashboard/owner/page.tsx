@@ -16,23 +16,28 @@ function OwnerView() {
   );
 
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">My Appointments</h1>
+    <div className="app-wrap">
+      <div className="app-page space-y-4">
+        <div className="app-header">
+          <div>
+            <h1 className="app-title">My Appointments</h1>
+            <p className="app-subtitle">Track upcoming visits and review your pet appointment history.</p>
+          </div>
 
-        <div className="flex items-center gap-2">
-          <Link href="/appointments/book">
-            <Button>Book new</Button>
-          </Link>
-          <Link href="/dashboard/owner/profile">
-            <Button variant="outline" size="sm">
-              Profile
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/appointments/book">
+              <Button>Book new</Button>
+            </Link>
+            <Link href="/dashboard/owner/profile">
+              <Button variant="outline" size="sm">
+                Profile
+              </Button>
+            </Link>
+          </div>
         </div>
-      </div>
 
-      <AppointmentsBoard role="OWNER" loadAppointments={loadAppointments} />
+        <AppointmentsBoard role="OWNER" loadAppointments={loadAppointments} />
+      </div>
     </div>
   );
 }

@@ -1,13 +1,23 @@
-"use client";
+'use client';
 
-import FullCalendar from "@fullcalendar/react";
-import timeGridPlugin from "@fullcalendar/timegrid";
-import interactionPlugin from "@fullcalendar/interaction";
-import type { EventInput, DateSelectArg, EventDropArg, EventChangeArg, EventClickArg } from "@fullcalendar/core";
+import type {
+  DateSelectArg,
+  EventChangeArg,
+  EventClickArg,
+  EventDropArg,
+  EventInput,
+} from '@fullcalendar/core';
+import interactionPlugin from '@fullcalendar/interaction';
+import FullCalendar from '@fullcalendar/react';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import { useCallback, useMemo, useState } from 'react';
 
-import { useCallback, useMemo } from "react";
-import type { Availability, Weekday } from "@/lib/types";
-import { addAvailabilityBlock, updateAvailabilityBlock, deleteAvailabilityBlock } from "@/lib/fetchers";
+import {
+  addAvailabilityBlock,
+  deleteAvailabilityBlock,
+  updateAvailabilityBlock,
+} from '@/lib/fetchers';
+import type { Availability, Weekday } from '@/lib/types';
 
 const WEEKDAY_TO_INDEX: Record<Weekday, number> = {
   MONDAY: 1,
@@ -19,140 +29,178 @@ const WEEKDAY_TO_INDEX: Record<Weekday, number> = {
   SUNDAY: 0,
 };
 
-function toHHmm(d: Date) {
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
+function toHHmm(date: Date) {
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
   return `${hh}:${mm}`;
 }
 
-function dateToWeekday(d: Date): Weekday {
-  const idx = d.getDay(); // 0..6 (Sun..Sat)
+function dateToWeekday(date: Date): Weekday {
   const map: Record<number, Weekday> = {
-    0: "SUNDAY",
-    1: "MONDAY",
-    2: "TUESDAY",
-    3: "WEDNESDAY",
-    4: "THURSDAY",
-    5: "FRIDAY",
-    6: "SATURDAY",
+    0: 'SUNDAY',
+    1: 'MONDAY',
+    2: 'TUESDAY',
+    3: 'WEDNESDAY',
+    4: 'THURSDAY',
+    5: 'FRIDAY',
+    6: 'SATURDAY',
   };
-  return map[idx];
+  return map[date.getDay()];
 }
 
 type Props = {
   availability: Availability[];
-  onChanged: () => Promise<void>; // reload from server
+  onChanged: () => Promise<void>;
 };
 
 export default function VetAvailabilityCalendar({ availability, onChanged }: Props) {
-  // Map your weekly blocks to events shown in the *current* week view
-  const events = useMemo<EventInput[]>(() => {
-    // Anchor events to the current week by using "daysOfWeek" + startTime/endTime (recurring)
-    // FullCalendar supports recurring weekly events with these props.
-    return availability.map((a) => ({
-      id: a.id,
-      title: "Available",
-      daysOfWeek: [WEEKDAY_TO_INDEX[a.day]],
-      startTime: a.startTime, // "HH:mm"
-      endTime: a.endTime,     // "HH:mm"
-    }));
-  }, [availability]);
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Create block by selecting time range
-  const onSelect = useCallback(async (arg: DateSelectArg) => {
-    // FullCalendar selection gives actual dates; convert to weekday + HH:mm
-    const day = dateToWeekday(arg.start);
-    const startTime = toHHmm(arg.start);
-    const endTime = toHHmm(arg.end);
+  const events = useMemo<EventInput[]>(
+    () =>
+      availability.map((block) => ({
+        id: block.id,
+        title: 'Available',
+        daysOfWeek: [WEEKDAY_TO_INDEX[block.day]],
+        startTime: block.startTime,
+        endTime: block.endTime,
+        classNames: ['vetlink-fc-availability'],
+      })),
+    [availability]
+  );
 
-    try {
-      await addAvailabilityBlock({ day, startTime, endTime });
-      await onChanged();
-    } finally {
-      arg.view.calendar.unselect();
-    }
-  }, [onChanged]);
+  const onSelect = useCallback(
+    async (arg: DateSelectArg) => {
+      const day = dateToWeekday(arg.start);
+      const startTime = toHHmm(arg.start);
+      const endTime = toHHmm(arg.end);
 
-  // Update block by drag
-  const onEventDrop = useCallback(async (arg: EventDropArg) => {
-    const id = arg.event.id;
-    const start = arg.event.start;
-    const end = arg.event.end;
-    if (!start || !end) return;
+      setWorking(true);
+      setError(null);
 
-    const day = dateToWeekday(start);
-    const startTime = toHHmm(start);
-    const endTime = toHHmm(end);
+      try {
+        await addAvailabilityBlock({ day, startTime, endTime });
+        await onChanged();
+      } catch (selectError) {
+        console.error(selectError);
+        setError('Failed to add availability block');
+      } finally {
+        setWorking(false);
+        arg.view.calendar.unselect();
+      }
+    },
+    [onChanged]
+  );
 
-    try {
-      await updateAvailabilityBlock(id, { day, startTime, endTime });
-      await onChanged();
-    } catch (e) {
-      // revert UI if server rejects (overlap, invalid, etc.)
-      arg.revert();
-      throw e;
-    }
-  }, [onChanged]);
+  const onEventDrop = useCallback(
+    async (arg: EventDropArg) => {
+      const { id, start, end } = arg.event;
+      if (!start || !end) return;
 
-  // Update block by resize
-  const onEventResize = useCallback(async (arg: EventChangeArg) => {
-    const id = arg.event.id;
-    const start = arg.event.start;
-    const end = arg.event.end;
-    if (!start || !end) return;
+      setWorking(true);
+      setError(null);
 
-    const day = dateToWeekday(start);
-    const startTime = toHHmm(start);
-    const endTime = toHHmm(end);
+      try {
+        await updateAvailabilityBlock(id, {
+          day: dateToWeekday(start),
+          startTime: toHHmm(start),
+          endTime: toHHmm(end),
+        });
+        await onChanged();
+      } catch (dropError) {
+        console.error(dropError);
+        setError('Failed to update availability block');
+        arg.revert();
+      } finally {
+        setWorking(false);
+      }
+    },
+    [onChanged]
+  );
 
-    try {
-      await updateAvailabilityBlock(id, { day, startTime, endTime });
-      await onChanged();
-    } catch (e) {
-      arg.revert();
-      throw e;
-    }
-  }, [onChanged]);
+  const onEventResize = useCallback(
+    async (arg: EventChangeArg) => {
+      const { id, start, end } = arg.event;
+      if (!start || !end) return;
 
-  // Delete block on click (simple UX)
-  const onEventClick = useCallback(async (arg: EventClickArg) => {
-    const ok = confirm("Delete this availability block?");
-    if (!ok) return;
+      setWorking(true);
+      setError(null);
 
-    await deleteAvailabilityBlock(arg.event.id);
-    await onChanged();
-  }, [onChanged]);
+      try {
+        await updateAvailabilityBlock(id, {
+          day: dateToWeekday(start),
+          startTime: toHHmm(start),
+          endTime: toHHmm(end),
+        });
+        await onChanged();
+      } catch (resizeError) {
+        console.error(resizeError);
+        setError('Failed to update availability block');
+        arg.revert();
+      } finally {
+        setWorking(false);
+      }
+    },
+    [onChanged]
+  );
+
+  const onEventClick = useCallback(
+    async (arg: EventClickArg) => {
+      const ok = confirm('Delete this availability block?');
+      if (!ok) return;
+
+      setWorking(true);
+      setError(null);
+
+      try {
+        await deleteAvailabilityBlock(arg.event.id);
+        await onChanged();
+      } catch (deleteError) {
+        console.error(deleteError);
+        setError('Failed to delete availability block');
+      } finally {
+        setWorking(false);
+      }
+    },
+    [onChanged]
+  );
 
   return (
-    <div className="rounded-lg border p-3">
-      <FullCalendar
-        plugins={[timeGridPlugin, interactionPlugin]}
-        initialView="timeGridWeek"
-        height="auto"
-        nowIndicator
-        selectable
-        selectMirror
-        editable
-        eventResizableFromStart={false}
-        slotMinTime="06:00:00"
-        slotMaxTime="22:00:00"
-        slotDuration="00:30:00"          // your slotMinutes
-        snapDuration="00:30:00"
-        allDaySlot={false}
-        firstDay={1}                      // Monday
-        headerToolbar={{
-          left: "prev,next today",
-          center: "title",
-          right: "timeGridWeek,timeGridDay",
-        }}
-        events={events}
-        select={onSelect}
-        eventDrop={onEventDrop}
-        eventResize={onEventResize}
-        eventClick={onEventClick}
-      />
-      <p className="mt-2 text-xs text-muted-foreground">
-        Tip: drag to create availability, drag/resize to edit, click a block to delete.
+    <div className="space-y-3 rounded-xl border border-[#d6e4ec] bg-[#fbfdff] p-3">
+      {error && <div className="status-error">{error}</div>}
+
+      <div className="rounded-xl border border-[#dce8ee] bg-white p-2">
+        <FullCalendar
+          plugins={[timeGridPlugin, interactionPlugin]}
+          initialView="timeGridWeek"
+          height="auto"
+          nowIndicator
+          selectable={!working}
+          selectMirror
+          editable={!working}
+          eventResizableFromStart={false}
+          slotMinTime="06:00:00"
+          slotMaxTime="22:00:00"
+          slotDuration="00:30:00"
+          snapDuration="00:30:00"
+          allDaySlot={false}
+          firstDay={1}
+          headerToolbar={{
+            left: 'prev,next today',
+            center: 'title',
+            right: 'timeGridWeek,timeGridDay',
+          }}
+          events={events}
+          select={onSelect}
+          eventDrop={onEventDrop}
+          eventResize={onEventResize}
+          eventClick={onEventClick}
+        />
+      </div>
+
+      <p className="text-xs text-[#5d7b8e]">
+        Tip: drag to create availability, drag or resize to edit, and click a block to delete.
       </p>
     </div>
   );

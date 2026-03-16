@@ -6,7 +6,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-sans-custom);
   --font-mono: var(--font-geist-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -45,24 +45,24 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --background: #f6f4ee;
+  --foreground: #102f46;
+  --card: #ffffff;
+  --card-foreground: #143752;
+  --popover: #ffffff;
+  --popover-foreground: #143752;
+  --primary: #103857;
+  --primary-foreground: #ffffff;
+  --secondary: #e8f2f4;
+  --secondary-foreground: #1f4f6a;
+  --muted: #edf3f6;
+  --muted-foreground: #557184;
+  --accent: #dbedf2;
+  --accent-foreground: #103857;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --border: #d7e3e9;
+  --input: #cddce4;
+  --ring: #7ca2b6;
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -116,7 +116,119 @@
   * {
     @apply border-border outline-ring/50;
   }
+
+  html,
+  body {
+    @apply min-h-screen;
+  }
+
   body {
     @apply bg-background text-foreground;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display-custom), sans-serif;
+  }
+}
+
+@layer components {
+  .app-wrap {
+    @apply min-h-screen bg-[radial-gradient(circle_at_15%_20%,rgba(145,199,210,0.24),transparent_34%),radial-gradient(circle_at_85%_15%,rgba(176,206,233,0.24),transparent_32%),linear-gradient(180deg,#f8f5ef_0%,#f3f5f8_100%)];
+  }
+
+  .app-page {
+    @apply mx-auto w-full max-w-6xl p-6 sm:p-8;
+  }
+
+  .app-header {
+    @apply mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#cfdee7] bg-white/75 p-4 shadow-sm backdrop-blur;
+  }
+
+  .app-title {
+    @apply text-2xl font-bold text-[#103857];
+  }
+
+  .app-subtitle {
+    @apply text-sm text-[#4c6a7f];
+  }
+
+  .app-section {
+    @apply rounded-2xl border border-[#d5e3ea] bg-white/85 p-5 shadow-sm;
+  }
+
+  .status-ok {
+    @apply rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700;
+  }
+
+  .status-error {
+    @apply rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700;
+  }
+
+  .fc {
+    --fc-border-color: #d5e3ea;
+    --fc-page-bg-color: #ffffff;
+    --fc-neutral-bg-color: #f4f9fb;
+    --fc-now-indicator-color: #265d7a;
+    font-size: 0.9rem;
+  }
+
+  .fc .fc-toolbar-title {
+    color: #123a55;
+    font-family: var(--font-display-custom), sans-serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+
+  .fc .fc-button-primary {
+    background-color: #103857;
+    border-color: #103857;
+    border-radius: 0.7rem;
+    box-shadow: none;
+    color: #fff;
+  }
+
+  .fc .fc-button-primary:not(:disabled):hover {
+    background-color: #0f3f62;
+    border-color: #0f3f62;
+  }
+
+  .fc .fc-col-header-cell-cushion {
+    color: #2f556c;
+    font-weight: 600;
+    padding-block: 0.35rem;
+  }
+
+  .fc .fc-timegrid-slot-label-cushion {
+    color: #5d7b8e;
+    font-size: 0.75rem;
+  }
+
+  .fc .fc-timegrid-now-indicator-line {
+    border-color: #2f6b8d;
+  }
+
+  .fc .fc-daygrid-day.fc-day-today,
+  .fc .fc-timegrid-col.fc-day-today {
+    background: rgba(189, 220, 234, 0.18);
+  }
+
+  .vetlink-fc-event {
+    background: #113a56;
+    border-color: #113a56;
+    border-radius: 0.6rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding-inline: 0.2rem;
+  }
+
+  .vetlink-fc-availability {
+    background: #2d7386;
+    border-color: #2d7386;
+    border-radius: 0.6rem;
+    font-size: 0.75rem;
+    font-weight: 600;
   }
 }

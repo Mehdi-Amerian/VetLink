@@ -1,24 +1,20 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import axios from 'axios';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useAuth } from '@/providers/auth-provider';
-import {
-  getVetById,
-  updateMyVetProfile,
-  getAvailabilityForVet,
-} from '@/lib/fetchers';
-import type { Vet, Availability} from '@/lib/types';
-
+import AuthGate from '@/components/auth/AuthGate';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import VetAvailabilityCalendar from "@/components/ui/vetAvailabilityCalendar";
+import VetAvailabilityCalendar from '@/components/ui/vetAvailabilityCalendar';
+import { getAvailabilityForVet, getVetById, updateMyVetProfile } from '@/lib/fetchers';
+import type { Availability, Vet } from '@/lib/types';
+import { useAuth } from '@/providers/auth-provider';
 
-export default function VetProfilePage() {
+function VetProfileInner() {
   const { user, ready } = useAuth();
   const router = useRouter();
 
@@ -29,24 +25,28 @@ export default function VetProfilePage() {
   const [specialization, setSpecialization] = useState('');
 
   const [savingProfile, setSavingProfile] = useState(false);
-
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const reloadAvailability = useCallback(async () => {
     if (!user?.vetId) return;
-    const availData = await getAvailabilityForVet(user.vetId);
-    setAvailabilities(availData);
+    try {
+      const availData = await getAvailabilityForVet(user.vetId);
+      setAvailabilities(availData);
+    } catch (reloadError) {
+      console.error(reloadError);
+      setError('Failed to refresh availability');
+    }
   }, [user?.vetId]);
 
-  // redirect guards
   useEffect(() => {
     if (!ready) return;
     if (!user) {
       router.replace('/login');
       return;
     }
-    if (user.role !== 'VET' || !user.vetId) {
+    const vetId = user.vetId;
+    if (user.role !== 'VET' || !vetId) {
       router.replace('/');
       return;
     }
@@ -57,25 +57,22 @@ export default function VetProfilePage() {
         setMessage(null);
 
         const [vetData, availData] = await Promise.all([
-          getVetById(user.vetId!),
-          getAvailabilityForVet(user.vetId!),
+          getVetById(vetId),
+          getAvailabilityForVet(vetId),
         ]);
 
         setVet(vetData);
-        setName(vetData.name);
+        setName(vetData.name ?? '');
         setSpecialization(vetData.specialization ?? '');
         setAvailabilities(availData);
-      } catch (e) {
-        console.error(e);
+      } catch (loadError) {
+        console.error(loadError);
         setError('Failed to load vet profile or availability');
       }
     })();
-  }, [ready, user, router]);
+  }, [ready, router, user]);
 
-  const canSaveProfile = useMemo(() => {
-    if (!name.trim()) return false;
-    return true;
-  }, [name]);
+  const canSaveProfile = useMemo(() => name.trim().length > 0, [name]);
 
   async function onSaveProfile() {
     if (!canSaveProfile) return;
@@ -90,11 +87,11 @@ export default function VetProfilePage() {
       });
       setVet(updated);
       setMessage('Profile updated');
-    } catch (e: unknown) {
-      console.error(e);
-      if (axios.isAxiosError(e)) {
+    } catch (saveError: unknown) {
+      console.error(saveError);
+      if (axios.isAxiosError(saveError)) {
         const msg =
-          (e.response?.data as { message?: string } | undefined)?.message ??
+          (saveError.response?.data as { message?: string } | undefined)?.message ??
           'Failed to update profile';
         setError(msg);
       } else {
@@ -110,64 +107,75 @@ export default function VetProfilePage() {
   }
 
   return (
-    <div className="p-6 space-y-8">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">My vet profile</h1>
-        <Link href="/dashboard/vet">
-          <Button variant="outline" size="sm">
-            Back to dashboard
-          </Button>
-        </Link>
-      </div>
-      <p className="text-sm text-muted-foreground">
-        Update your professional details and manage your working hours.
-      </p>
-
-      {message && <p className="text-sm text-green-600">{message}</p>}
-      {error && <p className="text-sm text-red-600">{error}</p>}
-
-      {/* ---- Profile form ---- */}
-      <section className="space-y-4 border rounded-lg p-4">
-        <h2 className="text-lg font-medium">Profile</h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="app-wrap">
+      <div className="app-page max-w-5xl space-y-6">
+        <div className="app-header">
           <div>
-            <Label htmlFor="v-name">Name</Label>
-            <Input
-              id="v-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Dr. Jane Doe"
-            />
+            <h1 className="app-title">My Vet Profile</h1>
+            <p className="app-subtitle">Keep your profile details and weekly availability up to date.</p>
           </div>
-          <div>
-            <Label htmlFor="v-spec">Specialization</Label>
-            <Input
-              id="v-spec"
-              value={specialization}
-              onChange={(e) => setSpecialization(e.target.value)}
-              placeholder="General practice, surgery, ..."
-            />
-          </div>
+          <Link href="/dashboard/vet">
+            <Button variant="outline" size="sm">
+              Back to dashboard
+            </Button>
+          </Link>
         </div>
 
-        <Button onClick={onSaveProfile} disabled={!canSaveProfile || savingProfile}>
-          {savingProfile ? 'Saving…' : 'Save profile'}
-        </Button>
-      </section>
+        {message && <div className="status-ok">{message}</div>}
+        {error && <div className="status-error">{error}</div>}
 
-       {/* ---- Availability (FullCalendar) ---- */}
-      <section className="space-y-4 border rounded-lg p-4">
-        <h2 className="text-lg font-medium">Availability</h2>
-        <p className="text-sm text-muted-foreground">
-          Drag to create availability. Drag/resize to edit. Click a block to delete.
-        </p>
+        <section className="app-section space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold text-[#113a56]">Profile details</h2>
+            {vet?.id && <p className="text-xs text-[#5d7b8e]">Vet ID: {vet.id}</p>}
+          </div>
 
-        <VetAvailabilityCalendar
-          availability={availabilities}
-          onChanged={reloadAvailability}
-        />
-      </section>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="v-name">Name</Label>
+              <Input
+                id="v-name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Dr. Jane Doe"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="v-spec">Specialization</Label>
+              <Input
+                id="v-spec"
+                value={specialization}
+                onChange={(event) => setSpecialization(event.target.value)}
+                placeholder="General practice, surgery, dermatology..."
+              />
+            </div>
+          </div>
+
+          <Button onClick={onSaveProfile} disabled={!canSaveProfile || savingProfile}>
+            {savingProfile ? 'Saving...' : 'Save profile'}
+          </Button>
+        </section>
+
+        <section className="app-section space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-[#113a56]">Availability</h2>
+            <p className="text-sm text-[#5d7b8e]">
+              Drag on the calendar to create slots. Drag or resize to adjust, and click a slot to delete.
+            </p>
+          </div>
+
+          <VetAvailabilityCalendar availability={availabilities} onChanged={reloadAvailability} />
+        </section>
+      </div>
     </div>
+  );
+}
+
+export default function VetProfilePage() {
+  return (
+    <AuthGate roles={['VET']}>
+      <VetProfileInner />
+    </AuthGate>
   );
 }

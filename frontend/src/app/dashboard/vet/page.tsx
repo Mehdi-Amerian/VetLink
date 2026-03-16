@@ -16,18 +16,23 @@ function VetView() {
   );
 
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold">Vet Appointments</h1>
+    <div className="app-wrap">
+      <div className="app-page space-y-4">
+        <div className="app-header">
+          <div>
+            <h1 className="app-title">Vet Appointments</h1>
+            <p className="app-subtitle">Stay on top of today&apos;s schedule and revisit past consultations.</p>
+          </div>
 
-        <Link href="/dashboard/vet/profile">
-          <Button variant="outline" size="sm">
-            Edit profile & availability
-          </Button>
-        </Link>
+          <Link href="/dashboard/vet/profile">
+            <Button variant="outline" size="sm">
+              Edit profile and availability
+            </Button>
+          </Link>
+        </div>
+
+        <AppointmentsBoard role="VET" loadAppointments={loadAppointments} />
       </div>
-
-      <AppointmentsBoard role="VET" loadAppointments={loadAppointments} />
     </div>
   );
 }

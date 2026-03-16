@@ -9,6 +9,7 @@ import { Nunito_Sans, Sora } from 'next/font/google';
 import { useAuth } from '@/providers/auth-provider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { dashboardPathForRole } from '@/lib/role-routing';
 
 const heading = Sora({
   subsets: ['latin'],
@@ -203,24 +204,12 @@ export default function Home() {
 
   useEffect(() => {
     if (!ready || !user) return;
-
-    switch (user.role) {
-      case 'OWNER':
-        router.replace('/dashboard/owner');
-        break;
-      case 'VET':
-        router.replace('/dashboard/vet');
-        break;
-      case 'CLINIC_ADMIN':
-        router.replace('/dashboard/clinic-admin');
-        break;
-      case 'SUPER_ADMIN':
-        router.replace('/dashboard/super-admin');
-        break;
-      default:
-        router.replace('/login');
-    }
+    router.replace(dashboardPathForRole(user.role));
   }, [user, ready, router]);
+
+  if (ready && user) {
+    return null;
+  }
 
   return (
     <main
