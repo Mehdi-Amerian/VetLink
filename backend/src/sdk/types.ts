@@ -196,7 +196,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/availability/{vetId}": {
+    "/api/availability/vets/{vetId}": {
         parameters: {
             query?: never;
             header?: never;
@@ -213,7 +213,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/{Id}": {
+    "/api/availability/{availabilityId}": {
         parameters: {
             query?: never;
             header?: never;
@@ -272,7 +272,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List appointments for the current owner */
+        get: operations["appointmentsListMine"];
         put?: never;
         /**
          * Create an appointment
@@ -286,6 +287,57 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/appointments/vet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List appointments for the current vet */
+        get: operations["appointmentsListForVet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/appointments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Reschedule an appointment (owner only) */
+        patch: operations["appointmentsReschedule"];
+        trace?: never;
+    };
+    "/api/appointments/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Cancel an appointment */
+        patch: operations["appointmentsCancel"];
         trace?: never;
     };
     "/api/notifications/preferences": {
@@ -562,6 +614,8 @@ export interface components {
             date: string;
             /** Format: date-time */
             endTime: string;
+            /** Format: date-time */
+            cancelledAt?: string | null;
             reason: string;
             emergency: boolean;
             /** Format: uuid */
@@ -596,6 +650,20 @@ export interface components {
             clinicId: string;
             /** Format: uuid */
             vetId: string;
+        };
+        AppointmentRescheduleDTO: {
+            /** Format: date-time */
+            date: string;
+        };
+        AppointmentsResponse: {
+            appointments: components["schemas"]["Appointment"][];
+        };
+        AppointmentResponse: {
+            appointment: components["schemas"]["Appointment"];
+        };
+        AppointmentCancelResponse: {
+            message: string;
+            appointment?: components["schemas"]["Appointment"];
         };
         NotificationPreference: {
             /** Format: uuid */
@@ -1356,7 +1424,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Availability"][];
+                    "application/json": {
+                        availability: components["schemas"]["Availability"][];
+                    };
                 };
             };
             /** @description Unauthorized */
@@ -1384,7 +1454,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                Id: string;
+                availabilityId: string;
             };
             cookie?: never;
         };
@@ -1404,7 +1474,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                Id: string;
+                availabilityId: string;
             };
             cookie?: never;
         };
@@ -1432,7 +1502,6 @@ export interface operations {
             query: {
                 /** @description ISO date (YYYY-MM-DD) in Europe/Helsinki */
                 date: string;
-                slotMinutes?: 15 | 30 | 45 | 60;
             };
             header?: never;
             path: {
@@ -1484,7 +1553,6 @@ export interface operations {
         parameters: {
             query: {
                 date: string;
-                slotMinutes?: 15 | 30 | 45 | 60;
                 vetId?: string;
             };
             header?: never;
@@ -1524,6 +1592,44 @@ export interface operations {
             };
             /** @description Clinic not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    appointmentsListMine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppointmentsResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1588,6 +1694,164 @@ export interface operations {
             /** @description Conflict. Either: - the requested time slot overlaps an existing appointment, or - the Idempotency-Key was reused with a different request body or endpoint.
              *      */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    appointmentsListForVet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppointmentsResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    appointmentsReschedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppointmentRescheduleDTO"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppointmentResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Appointment not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Time conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    appointmentsCancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cancelled or already cancelled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppointmentCancelResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Appointment not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

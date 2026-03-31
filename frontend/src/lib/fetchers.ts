@@ -400,7 +400,7 @@ export async function createVetAndInvite(
 export async function getAvailabilityForVet(
   vetId: string
 ): Promise<Availability[]> {
-  const { data } = await api.get(`/availability/${vetId}`);
+  const { data } = await api.get(`/availability/vets/${vetId}`);
   return unwrapArray<Availability>(data, 'availability');
 }
 

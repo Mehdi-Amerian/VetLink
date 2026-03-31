@@ -11,7 +11,7 @@ router.get('/vets/:vetId/available-slots', getAvailableSlots);
 router.get('/clinics/:clinicId/available-slots', getClinicAvailableSlots);
 
 // Anyone can view vet's schedule
-router.get('/:vetId', getAvailabilityByVet);
+router.get('/vets/:vetId', getAvailabilityByVet);
 
 // VET creates availability
 router.post('/', verifyToken, checkRole('VET'), addAvailability);
