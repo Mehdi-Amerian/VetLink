@@ -6,6 +6,11 @@ const zod_1 = require("zod");
 const prismaClient_1 = require("../config/prismaClient");
 const time_1 = require("../utils/time");
 const OVERLAP_CONSTRAINT = 'Appointment_no_overlapping_active_vet_slots';
+const appointmentsQuerySchema = zod_1.z.object({
+    view: zod_1.z.enum(['upcoming', 'history']).optional().default('upcoming'),
+    page: zod_1.z.coerce.number().int().min(1).optional().default(1),
+    pageSize: zod_1.z.coerce.number().int().min(1).max(100).optional().default(20),
+});
 function isOverlapConstraintError(err) {
     if (!(err instanceof client_1.Prisma.PrismaClientKnownRequestError))
         return false;
@@ -30,6 +35,30 @@ function isPastDayInClinicZone(value) {
     const today = (0, time_1.toLocal)(new Date());
     today.setHours(0, 0, 0, 0);
     return selectedDay.getTime() < today.getTime();
+}
+function getViewFilter(view, now) {
+    if (view === 'upcoming') {
+        return {
+            cancelledAt: null,
+            endTime: { gte: now },
+        };
+    }
+    return {
+        OR: [
+            { cancelledAt: { not: null } },
+            { endTime: { lt: now } },
+        ],
+    };
+}
+function paginationMeta(page, pageSize, total) {
+    const totalPages = total === 0 ? 0 : Math.ceil(total / pageSize);
+    return {
+        page,
+        pageSize,
+        total,
+        totalPages,
+        hasMore: page < totalPages,
+    };
 }
 // 1) Validate input
 const appointmentSchema = zod_1.z.object({
@@ -62,6 +91,12 @@ const createAppointment = async (req, res) => {
             return res.status(400).json({
                 error: 'Bad Request',
                 message: 'Appointment date cannot be in the past.',
+            });
+        }
+        if ((0, time_1.isBeforeSameDayLeadTime)(start)) {
+            return res.status(400).json({
+                error: 'Bad Request',
+                message: `For same-day bookings, choose a time at least ${time_1.SAME_DAY_BOOKING_LEAD_MINUTES} minutes from now.`,
             });
         }
         const end = new Date(start.getTime() + slotMinutes * 60000);
@@ -134,20 +169,44 @@ const createAppointment = async (req, res) => {
 exports.createAppointment = createAppointment;
 const getMyAppointments = async (req, res) => {
     const userId = req.user.userId;
-    const appointments = await prismaClient_1.prisma.appointment.findMany({
-        where: { ownerId: userId },
-        include: {
-            pet: true,
-            vet: true,
-            clinic: true,
-        },
-        orderBy: { date: 'asc' },
+    const parsed = appointmentsQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.flatten() });
+    }
+    const { view, page, pageSize } = parsed.data;
+    const now = new Date();
+    const where = {
+        ownerId: userId,
+        ...getViewFilter(view, now),
+    };
+    const skip = (page - 1) * pageSize;
+    const [appointments, total] = await Promise.all([
+        prismaClient_1.prisma.appointment.findMany({
+            where,
+            include: {
+                pet: true,
+                vet: true,
+                clinic: true,
+            },
+            orderBy: { date: view === 'upcoming' ? 'asc' : 'desc' },
+            skip,
+            take: pageSize,
+        }),
+        prismaClient_1.prisma.appointment.count({ where }),
+    ]);
+    res.json({
+        appointments,
+        pagination: paginationMeta(page, pageSize, total),
     });
-    res.json({ appointments });
 };
 exports.getMyAppointments = getMyAppointments;
 const getAppointmentsForVet = async (req, res) => {
     const userId = req.user.userId;
+    const parsed = appointmentsQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.flatten() });
+    }
+    const { view, page, pageSize } = parsed.data;
     const user = await prismaClient_1.prisma.user.findUnique({
         where: { id: userId },
         select: { vetId: true },
@@ -155,16 +214,30 @@ const getAppointmentsForVet = async (req, res) => {
     if (!user?.vetId) {
         return res.status(403).json({ message: 'No vet profile linked to this user' });
     }
-    const appointments = await prismaClient_1.prisma.appointment.findMany({
-        where: { vetId: user.vetId },
-        include: {
-            pet: true,
-            owner: true,
-            clinic: true,
-        },
-        orderBy: { date: 'asc' },
+    const now = new Date();
+    const where = {
+        vetId: user.vetId,
+        ...getViewFilter(view, now),
+    };
+    const skip = (page - 1) * pageSize;
+    const [appointments, total] = await Promise.all([
+        prismaClient_1.prisma.appointment.findMany({
+            where,
+            include: {
+                pet: true,
+                owner: true,
+                clinic: true,
+            },
+            orderBy: { date: view === 'upcoming' ? 'asc' : 'desc' },
+            skip,
+            take: pageSize,
+        }),
+        prismaClient_1.prisma.appointment.count({ where }),
+    ]);
+    res.json({
+        appointments,
+        pagination: paginationMeta(page, pageSize, total),
     });
-    res.json({ appointments });
 };
 exports.getAppointmentsForVet = getAppointmentsForVet;
 // soft-cancel appointment
@@ -219,6 +292,11 @@ const updateAppointmentTime = async (req, res) => {
         const newStart = (0, time_1.parseClientToUtc)(date);
         if (isPastDayInClinicZone(newStart)) {
             return res.status(400).json({ message: 'Appointment date cannot be in the past' });
+        }
+        if ((0, time_1.isBeforeSameDayLeadTime)(newStart)) {
+            return res.status(400).json({
+                message: `For same-day bookings, choose a time at least ${time_1.SAME_DAY_BOOKING_LEAD_MINUTES} minutes from now.`,
+            });
         }
         const newEnd = new Date(newStart.getTime() + slotMinutes * 60000);
         const overlap = await prismaClient_1.prisma.appointment.findFirst({

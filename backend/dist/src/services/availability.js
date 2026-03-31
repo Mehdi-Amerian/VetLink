@@ -6,22 +6,24 @@ exports.updateAvailabilityService = updateAvailabilityService;
 exports.deleteAvailabilityService = deleteAvailabilityService;
 exports.getSlotsForVetDay = getSlotsForVetDay;
 exports.getClinicSlotsForDay = getClinicSlotsForDay;
-const prismaClient_1 = require("../config/prismaClient");
-const date_fns_1 = require("date-fns");
 const client_1 = require("@prisma/client");
+const date_fns_1 = require("date-fns");
+const date_fns_tz_1 = require("date-fns-tz");
+const prismaClient_1 = require("../config/prismaClient");
+const time_1 = require("../utils/time");
 async function createAvailabilityService(input) {
     return prismaClient_1.prisma.availability.create({ data: input });
 }
 async function listAvailabilityService(vetId) {
     return prismaClient_1.prisma.availability.findMany({
         where: { vetId },
-        orderBy: { day: 'asc' }
+        orderBy: { day: 'asc' },
     });
 }
 async function updateAvailabilityService(id, data) {
     return prismaClient_1.prisma.availability.update({
         where: { id },
-        data
+        data,
     });
 }
 async function deleteAvailabilityService(id) {
@@ -29,14 +31,14 @@ async function deleteAvailabilityService(id) {
 }
 /**
  * Generate conflict-free appointment start times for a vet on a given date.
- * Returns `undefined` if the vet doesn’t exist, or an array of "HH:mm" slots.
+ * Returns `undefined` if the vet does not exist, otherwise an array of `HH:mm` slots.
  */
 async function getSlotsForVetDay({ vetId, date, slotMinutes, }) {
-    const baseDate = (0, date_fns_1.parseISO)(date);
-    if (isNaN(baseDate.getTime()))
+    const parsedDay = (0, date_fns_1.parseISO)(date);
+    if (Number.isNaN(parsedDay.getTime())) {
         throw new Error('Invalid date');
-    // Map JS ISO day (1–7) to our Weekday enum
-    const isoDay = (0, date_fns_1.getISODay)(baseDate);
+    }
+    const isoDay = (0, date_fns_1.getISODay)(parsedDay);
     const weekdayMap = {
         1: client_1.Weekday.MONDAY,
         2: client_1.Weekday.TUESDAY,
@@ -47,25 +49,23 @@ async function getSlotsForVetDay({ vetId, date, slotMinutes, }) {
         7: client_1.Weekday.SUNDAY,
     };
     const targetDay = weekdayMap[isoDay];
-    // 1) fetch that vet’s availability for the day
     const vet = await prismaClient_1.prisma.vet.findUnique({
         where: { id: vetId },
         select: {
             availability: {
                 where: { day: targetDay },
-                select: { startTime: true, endTime: true }
-            }
-        }
+                select: { startTime: true, endTime: true },
+            },
+        },
     });
     if (!vet)
         return undefined;
-    // 2) carve out candidate slots in each availability window
     const candidates = [];
     for (const { startTime, endTime } of vet.availability) {
-        const [sh, sm] = startTime.split(':').map(Number);
-        const [eh, em] = endTime.split(':').map(Number);
-        let cursor = (0, date_fns_1.setMinutes)((0, date_fns_1.setHours)(baseDate, sh), sm);
-        const windowEnd = (0, date_fns_1.setMinutes)((0, date_fns_1.setHours)(baseDate, eh), em);
+        const startLocal = `${date}T${startTime}:00`;
+        const endLocal = `${date}T${endTime}:00`;
+        let cursor = (0, time_1.parseClientToUtc)(startLocal);
+        const windowEnd = (0, time_1.parseClientToUtc)(endLocal);
         while ((0, date_fns_1.addMinutes)(cursor, slotMinutes) <= windowEnd) {
             candidates.push(cursor);
             cursor = (0, date_fns_1.addMinutes)(cursor, slotMinutes);
@@ -73,49 +73,52 @@ async function getSlotsForVetDay({ vetId, date, slotMinutes, }) {
     }
     if (candidates.length === 0)
         return [];
-    // 3) fetch all non-cancelled appointments that day
-    const dayStart = baseDate;
-    const dayEnd = (0, date_fns_1.addDays)(baseDate, 1);
+    const dayStart = (0, time_1.parseClientToUtc)(`${date}T00:00:00`);
+    const dayEnd = (0, date_fns_1.addDays)(dayStart, 1);
     const appointments = await prismaClient_1.prisma.appointment.findMany({
         where: {
             vetId,
-            date: { gte: dayStart, lt: dayEnd }
+            cancelledAt: null,
+            date: { gte: dayStart, lt: dayEnd },
         },
-        select: { date: true, endTime: true }
+        select: { date: true, endTime: true },
     });
-    // 4) filter out any candidate that overlaps an existing appt
-    const free = candidates.filter(start => {
+    const free = candidates.filter((start) => {
         const end = (0, date_fns_1.addMinutes)(start, slotMinutes);
-        return !appointments.some(a => a.date < end && a.endTime > start);
+        const overlaps = appointments.some((appointment) => appointment.date < end && appointment.endTime > start);
+        if (overlaps)
+            return false;
+        if ((0, time_1.isBeforeSameDayLeadTime)(start))
+            return false;
+        return true;
     });
-    // 5) format, dedupe, sort
-    return Array.from(new Set(free.map(d => (0, date_fns_1.format)(d, 'HH:mm')))).sort();
+    return Array.from(new Set(free
+        .map((dateValue) => (0, date_fns_tz_1.formatInTimeZone)(dateValue, time_1.zone, 'HH:mm'))
+        .sort((a, b) => a.localeCompare(b))));
 }
 /**
- * Returns a map of vetId → free HH:mm slots for every vet in a clinic (optionally filtered to one vet).
- * Returns undefined if the clinic doesn’t exist.
+ * Returns vetId -> free `HH:mm` slots for every vet in a clinic.
+ * Returns undefined if the clinic does not exist.
  */
-async function getClinicSlotsForDay({ clinicId, date, slotMinutes, vetId }) {
-    // 1) Verify clinic exists
+async function getClinicSlotsForDay({ clinicId, date, slotMinutes, vetId, }) {
     const clinic = await prismaClient_1.prisma.clinic.findUnique({ where: { id: clinicId }, select: { id: true } });
     if (!clinic)
         return undefined;
-    // 2) Fetch all vets in that clinic (optionally filter by vetId)
     const vets = await prismaClient_1.prisma.vet.findMany({
         where: { clinicId, ...(vetId ? { id: vetId } : {}) },
-        select: { id: true }
+        select: { id: true },
     });
     if (vets.length === 0) {
-        // No vets → empty result
         return {};
     }
-    // 3) For each vet, get their slots
     const result = {};
-    await Promise.all(vets.map(async (v) => {
-        const slots = await getSlotsForVetDay({ vetId: v.id, date, slotMinutes });
-        // getSlotsForVetDay returning [] means “no availability”, 
-        // undefined only if vetId invalid—but here vets came from DB
-        result[v.id] = slots || [];
+    await Promise.all(vets.map(async (vet) => {
+        const slots = await getSlotsForVetDay({
+            vetId: vet.id,
+            date,
+            slotMinutes,
+        });
+        result[vet.id] = slots ?? [];
     }));
     return result;
 }

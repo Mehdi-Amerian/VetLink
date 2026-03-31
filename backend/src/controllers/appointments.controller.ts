@@ -2,7 +2,12 @@ import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../config/prismaClient';
-import { parseClientToUtc, toLocal } from '../utils/time';
+import {
+  isBeforeSameDayLeadTime,
+  parseClientToUtc,
+  SAME_DAY_BOOKING_LEAD_MINUTES,
+  toLocal,
+} from '../utils/time';
 
 const OVERLAP_CONSTRAINT = 'Appointment_no_overlapping_active_vet_slots';
 type AppointmentView = 'upcoming' | 'history';
@@ -104,6 +109,12 @@ export const createAppointment = async (req: Request, res: Response) => {
       return res.status(400).json({
         error: 'Bad Request',
         message: 'Appointment date cannot be in the past.',
+      });
+    }
+    if (isBeforeSameDayLeadTime(start)) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: `For same-day bookings, choose a time at least ${SAME_DAY_BOOKING_LEAD_MINUTES} minutes from now.`,
       });
     }
 
@@ -320,6 +331,11 @@ export const updateAppointmentTime = async (req: Request, res: Response) => {
     const newStart = parseClientToUtc(date);
     if (isPastDayInClinicZone(newStart)) {
       return res.status(400).json({ message: 'Appointment date cannot be in the past' });
+    }
+    if (isBeforeSameDayLeadTime(newStart)) {
+      return res.status(400).json({
+        message: `For same-day bookings, choose a time at least ${SAME_DAY_BOOKING_LEAD_MINUTES} minutes from now.`,
+      });
     }
 
     const newEnd = new Date(newStart.getTime() + slotMinutes * 60_000);
