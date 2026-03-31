@@ -1,6 +1,7 @@
 'use client';
 
 import axios from 'axios';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 import SlotPicker from './SlotPicker';
@@ -25,6 +26,8 @@ import { localDateTimeToUtcIso } from '@/lib/time';
 import type { Clinic, Pet, Vet } from '@/lib/types';
 
 export default function AppointmentForm() {
+  const router = useRouter();
+
   const [pets, setPets] = useState<Pet[]>([]);
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [vets, setVets] = useState<Vet[]>([]);
@@ -129,10 +132,8 @@ export default function AppointmentForm() {
         vetId,
       });
 
-      setMessage('Appointment booked successfully');
-      setTime('');
-      setReason('');
-      setEmergency(false);
+      router.replace('/dashboard/owner');
+      return;
     } catch (submitError: unknown) {
       if (axios.isAxiosError(submitError)) {
         const apiMessage =
